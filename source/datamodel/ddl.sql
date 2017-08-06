@@ -16,7 +16,7 @@ CREATE TABLE document_features (
     id serial  NOT NULL,
     title text  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_document_features UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_document_features UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE, 
     CONSTRAINT document_features_pk PRIMARY KEY (id)
 );
 
