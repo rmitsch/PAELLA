@@ -99,3 +99,20 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Data
+data/*
+!data/.gitkeep 
+.csv
+.xls
+.xlsx
+.ods
+
+# Tutorial
+/tutorial
+
+# Pycharm files.
+source/.idea/
+
+# Virtual python environment.
+py3env
