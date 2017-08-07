@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-06 14:59:48.667
+-- Last modification date: 2017-08-07 11:22:16.607
 
 -- tables
 -- Table: corpora
@@ -16,7 +16,7 @@ CREATE TABLE document_features (
     id serial  NOT NULL,
     title text  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_document_features UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE, 
+    CONSTRAINT c_u_document_features UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT document_features_pk PRIMARY KEY (id)
 );
 
@@ -33,10 +33,21 @@ CREATE TABLE documents (
     title text  NOT NULL,
     raw_text text  NOT NULL,
     refined_text text  NOT NULL,
-    corpora_id int  NOT NULL,
+    coordinates integer[]  NOT NULL,
     comment int  NULL,
-    CONSTRAINT c_u_documents_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    corpora_id int  NOT NULL,
+    CONSTRAINT c_u_documents_title_corpora_id UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT documents_pk PRIMARY KEY (id)
+);
+
+-- Table: stopwords
+CREATE TABLE stopwords (
+    id serial  NOT NULL,
+    word text  NOT NULL,
+    corpora_id int  NOT NULL,
+    comment text  NULL,
+    CONSTRAINT c_u_stopwords_word_corpora_id UNIQUE (word, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT stopwords_pk PRIMARY KEY (id)
 );
 
 -- Table: terms
@@ -51,6 +62,8 @@ CREATE TABLE terms (
 CREATE TABLE terms_in_corpora (
     corpora_id int  NOT NULL,
     terms_id int  NOT NULL,
+    coordinates integer[]  NOT NULL,
+    frequency int  NOT NULL,
     CONSTRAINT terms_in_corpora_pk PRIMARY KEY (corpora_id,terms_id)
 );
 
@@ -70,6 +83,7 @@ CREATE TABLE topic_models (
     kappa real  NOT NULL,
     corpora_id int  NOT NULL,
     runtime int  NOT NULL,
+    coordinates integer[]  NOT NULL,
     comment text  NULL,
     CONSTRAINT c_u_topic_models_alpha_beta_kappa_corpora_id UNIQUE (alpha, beta, kappa, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT topic_models_pk PRIMARY KEY (id)
@@ -82,6 +96,7 @@ CREATE TABLE topics (
     title text  NOT NULL,
     topic_models_id int  NOT NULL,
     quality int  NOT NULL,
+    coordinates integer[]  NOT NULL,
     comment text  NULL,
     CONSTRAINT c_u_topics_topic_number_topic_models_id UNIQUE (topic_models_id, topic_number) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT topics_pk PRIMARY KEY (id)
@@ -114,6 +129,14 @@ ALTER TABLE document_features_in_documents ADD CONSTRAINT document_features_in_d
 
 -- Reference: documents_corpora (table: documents)
 ALTER TABLE documents ADD CONSTRAINT documents_corpora
+    FOREIGN KEY (corpora_id)
+    REFERENCES corpora (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: stopwords_corpora (table: stopwords)
+ALTER TABLE stopwords ADD CONSTRAINT stopwords_corpora
     FOREIGN KEY (corpora_id)
     REFERENCES corpora (id)  
     NOT DEFERRABLE 
