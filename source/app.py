@@ -11,7 +11,6 @@ app = Flask(__name__)
 # Define version.
 version = "0.1"
 
-
 #try:
 #    connect_str = "dbname='testpython' user='matt' host='localhost' " + \
 #                  "password='myOwnPassword'"
@@ -32,7 +31,7 @@ version = "0.1"
 # root: Render HTML.
 @app.route("/")
 def index():
-    return "TOPAC"
+    return "TOPACx"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -116,3 +116,6 @@ source/.idea/
 
 # Virtual python environment.
 py3env
+
+# Folder with DB-testsetup.
+postgres
