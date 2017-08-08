@@ -100,14 +100,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-# Data
-data/*
-!data/.gitkeep 
-.csv
-.xls
-.xlsx
-.ods
-
 # Tutorial
 /tutorial
 
@@ -116,6 +108,3 @@ source/.idea/
 
 # Virtual python environment.
 py3env
-
-# Folder with DB-testsetup.
-postgres

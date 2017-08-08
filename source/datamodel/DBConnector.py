@@ -6,19 +6,6 @@
 import psycopg2
 
 class DBConnector:
-    # DB connection.
-
     def __init__(self, host, database, port, user, password):
-        self.name = host
-        self.salary = database
-        self.salary = database
-        self.salary = database
-        self.salary = database
-
-    def displayCount(self):
-        print
-        "Total Employee %d" % Employee.empCount
-
-    def displayEmployee(self):
-        print
-        "Name : ", self.name, ", Salary: ", self.salary
+        # Init DB connection.
+        self.connection = psycopg2.connect(host=host, database=database, port=port, user=user, password=password)
