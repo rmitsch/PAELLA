@@ -3,9 +3,9 @@
 # Playground for testing import and other functionalities.
 #
 
-import datamodel.DBConnector as DBConnector
-import utils.Utils as Utils
-import algorithm.Corpus as Corpus
+import backend.datamodel.DBConnector as DBConnector
+import backend.utils.Utils as Utils
+import backend.algorithm.Corpus as Corpus
 
 # Create logger.
 Utils.create_logger()
@@ -14,5 +14,6 @@ Utils.create_logger()
 dbConnector = DBConnector(host="localhost", database="topac", port="8001", user="admin", password="password")
 
 # Import nltk-reuters corpus.
-nltk_reuters_corpus = Corpus(name="reuters", corpus_type="nltk-reuters")
+stopwords = []
+nltk_reuters_corpus = Corpus(name="reuters", corpus_type="nltk-reuters", stopwords=stopwords)
 nltk_reuters_corpus.import_corpus("")

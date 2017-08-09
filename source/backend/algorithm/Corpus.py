@@ -3,7 +3,10 @@
 # Class for connecting to database. Uses exactly one connection.
 #
 
-import utils.Utils as Utils
+import backend.utils.Utils as Utils
+import nltk as nltk
+import logging
+import re
 
 
 # Class representing a corpus in its entirety.
@@ -15,13 +18,16 @@ class Corpus:
 
     # Init instance of Corpus.
     # @param name
-    def __init__(self, name, corpus_type):
-        logger = Utils.logger
+    # @param corpus_type
+    # @param stopwords List of stopwords.
+    def __init__(self, name, corpus_type, stopwords):
+        logger = logging.getLogger("topac")
 
         self.name = name
         self.corpus_type = corpus_type
         # Initialize document collection with empty dataframe.
         self.documents = {}
+        self.stopwords = stopwords
 
         # Check if corpus_type is supported.
         if corpus_type not in Corpus.supportedCorporaTypes:
@@ -40,4 +46,16 @@ class Corpus:
     # Import nltk-reuter corpus.
     # @param path
     def import_nltk_reuters_corpus(self, path):
-        print("importing")
+        for fileID in nltk.corpus.reuters.fileids():
+            # Fetch document.
+            # todo Maybe don't lowercase everything?
+            doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip().lower()
+            if __name__ == '__main__':
+                if re.search(r"[;]", doc):
+                    # Exclude special signs: All ; & > < = numbers : , . ' "
+                    print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", " ", doc))
+                    # Exclude one-letter words
+                    # Next steps:
+                    #   - Text preprocessing
+                    #   - Import into relevant DB tables
+                    #   - Creating and storing tfidf-models (persist where/how - blob in db?)

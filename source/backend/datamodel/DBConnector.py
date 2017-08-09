@@ -5,7 +5,6 @@
 
 import psycopg2
 
-
 # Class for connecting to postgres database and executing queries.
 class DBConnector:
     # Init instance of DBConnector.
