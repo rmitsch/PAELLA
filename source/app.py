@@ -6,6 +6,8 @@ from flask import Flask
 from flask import render_template
 from flask import request, redirect, url_for, send_from_directory
 import psycopg2
+#from backend import *
+
 
 app = Flask(__name__)
 # Define version.
