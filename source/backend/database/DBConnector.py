@@ -4,6 +4,7 @@
 #
 
 import psycopg2
+import sys
 
 # Class for connecting to postgres database and executing queries.
 class DBConnector:
@@ -23,7 +24,15 @@ class DBConnector:
 
     # Execute DDL.
     def constructDatabase(self):
-        
+        # Create cursor.
+        cursor = self.connection.cursor()
+        # Execute ddl.sql.
+        try:
+            cursor.execute(open("backend/database/ddl.sql", "r").read())
+            self.connection.commit()
+        except:
+            print(sys.exc_info()[1])
+
 
     # Init instance of DBConnector.
     # @param host

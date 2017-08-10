@@ -10,6 +10,8 @@ services:
       - "2397:5000"
     networks:
       - topac-network
+    depends_on:
+      - "db"
   # Container for postgres DB.
   db:
     image: postgres:9.6.1

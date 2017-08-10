@@ -37,20 +37,32 @@ class Corpus:
     # @param corpus_type Type of corpus relating to its structure (different corpus structures have to be processed
     # differently. Ultimately, only one standardized corpus structure should be used).
     # @param path Path to file/folder where corpus is located.
-    def import_corpus(self, path):
+    # @param dbConnector
+    def import_corpus(self, path, dbConnector):
         if self.corpus_type == "nltk-reuters":
-            self.import_nltk_reuters_corpus(path)
+            self.import_nltk_reuters_corpus(path, dbConnector)
         else:
             print("blab")
 
     # Import nltk-reuter corpus.
     # @param path
-    def import_nltk_reuters_corpus(self, path):
+    # @param dbConnector
+    def import_nltk_reuters_corpus(self, path, dbConnector):
+        # Prepare cursor.
+        cursor = dbConnector.connection.cursor()
+
+        # Import corpus.
+        cursor.execute("insert into topac.corpora (title) values (%s)", ("nltk-reuters", ))
+        # Get corpus ID.
+        cursor.execute("select id from topac.corpora where title = 'nltk-reuters'")
+        cursorID = cursor.fetchone()[0]
+        print(cursorID )
+
         for fileID in nltk.corpus.reuters.fileids():
             # Fetch document.
             doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip()
 
-            # Store in DB.
+            # Import documents in DB.
 
 
             # Exclude special signs: All ; & > < = numbers : , . ' "
@@ -60,3 +72,6 @@ class Corpus:
             #   - Text preprocessing
             #   - Import into relevant DB tables
             #   - Creating and storing tfidf-models (persist where/how - blob in db?)
+
+        # Commit.
+        dbConnector.connection.commit()

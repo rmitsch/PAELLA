@@ -109,3 +109,6 @@ source/.idea/
 
 # Virtual python environment.
 py3env
+
+# DB log files.
+logs

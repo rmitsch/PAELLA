@@ -13,7 +13,10 @@ Utils.create_logger()
 # Create database connection.
 dbConnector = DBConnector(host="localhost", database="topac", port="8001", user="admin", password="password")
 
+# Create database.
+dbConnector.constructDatabase()
+
 # Import nltk-reuters corpus.
 stopwords = []
 nltk_reuters_corpus = Corpus(name="reuters", corpus_type="nltk-reuters", stopwords=stopwords)
-nltk_reuters_corpus.import_corpus("")
+nltk_reuters_corpus.import_corpus("", dbConnector)
