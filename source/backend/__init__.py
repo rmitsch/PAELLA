@@ -1,3 +1,3 @@
 from .algorithm import *
-from .datamodel import *
+from .database import *
 from .utils import *

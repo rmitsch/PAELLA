@@ -3,7 +3,7 @@
 # Playground for testing import and other functionalities.
 #
 
-import backend.datamodel.DBConnector as DBConnector
+import backend.database.DBConnector as DBConnector
 import backend.utils.Utils as Utils
 import backend.algorithm.Corpus as Corpus
 

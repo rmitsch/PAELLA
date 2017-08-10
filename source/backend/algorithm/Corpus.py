@@ -50,12 +50,11 @@ class Corpus:
             # Fetch document.
             # todo Maybe don't lowercase everything?
             doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip().lower()
-            if __name__ == '__main__':
-                if re.search(r"[;]", doc):
-                    # Exclude special signs: All ; & > < = numbers : , . ' "
-                    print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", " ", doc))
-                    # Exclude one-letter words
-                    # Next steps:
-                    #   - Text preprocessing
-                    #   - Import into relevant DB tables
-                    #   - Creating and storing tfidf-models (persist where/how - blob in db?)
+            if re.search(r"[;]", doc):
+                # Exclude special signs: All ; & > < = numbers : , . ' "
+                print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc))
+                # Exclude one-letter words
+                # Next steps:
+                #   - Text preprocessing
+                #   - Import into relevant DB tables
+                #   - Creating and storing tfidf-models (persist where/how - blob in db?)
