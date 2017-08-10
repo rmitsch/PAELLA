@@ -21,6 +21,10 @@ class DBConnector:
         except:
             print("unsuccessful")
 
+    # Execute DDL.
+    def constructDatabase(self):
+        
+
     # Init instance of DBConnector.
     # @param host
     # @param database

@@ -48,13 +48,15 @@ class Corpus:
     def import_nltk_reuters_corpus(self, path):
         for fileID in nltk.corpus.reuters.fileids():
             # Fetch document.
-            # todo Maybe don't lowercase everything?
-            doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip().lower()
-            if re.search(r"[;]", doc):
-                # Exclude special signs: All ; & > < = numbers : , . ' "
-                print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc))
-                # Exclude one-letter words
-                # Next steps:
-                #   - Text preprocessing
-                #   - Import into relevant DB tables
-                #   - Creating and storing tfidf-models (persist where/how - blob in db?)
+            doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip()
+
+            # Store in DB.
+
+
+            # Exclude special signs: All ; & > < = numbers : , . ' "
+            #print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc))
+            # Exclude one-letter words
+            # Next steps:
+            #   - Text preprocessing
+            #   - Import into relevant DB tables
+            #   - Creating and storing tfidf-models (persist where/how - blob in db?)
