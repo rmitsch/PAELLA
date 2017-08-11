@@ -1,0 +1,3 @@
+[submodule "lda2vec"]
+	path = lda2vec
+	url = git@github.com:rmitsch/lda2vec
