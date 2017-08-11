@@ -52,25 +52,52 @@ class Corpus:
         cursor = dbConnector.connection.cursor()
 
         # Import corpus.
-        cursor.execute("insert into topac.corpora (title) values (%s)", ("nltk-reuters", ))
-        # Get corpus ID.
-        cursor.execute("select id from topac.corpora where title = 'nltk-reuters'")
-        cursorID = cursor.fetchone()[0]
-        print(cursorID )
+        cursor.execute("insert into topac.corpora (title) values (%s) returning id", (self.name,))
+        corpus_id = cursor.fetchone()[0]
+
+        # Import corpus features.
+        cursor.execute("insert into "
+                       "    topac.corpus_features ("
+                       "        title, "
+                       "        type, "
+                       "        corpora_id"
+                       ")"
+                       "values ('categories', 'text', %s) "
+                       "returning id",
+                       (corpus_id,))
+        corpus_feature_id = cursor.fetchone()[0]
 
         for fileID in nltk.corpus.reuters.fileids():
             # Fetch document.
             doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip()
 
             # Import documents in DB.
+            cursor.execute("insert into "
+                           "topac.documents ("
+                           "    title, "
+                           "    raw_text, "
+                           "    corpora_id"
+                           ")"
+                           "values (%s, %s, %s) "
+                           "returning id",
+                           (fileID, doc, corpus_id))
+            document_id = cursor.fetchone()[0]
 
+            # Import document feature values.
+            cursor.execute("insert into "
+                           "topac.corpus_features_in_documents ("
+                           "    corpus_features_id, "
+                           "    documents_id, "
+                           "    value"
+                           ") "
+                           "values (%s, %s, %s)",
+                           (corpus_feature_id, document_id, nltk.corpus.reuters.categories(fileids=[fileID])))
 
             # Exclude special signs: All ; & > < = numbers : , . ' "
             #print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc))
             # Exclude one-letter words
             # Next steps:
             #   - Text preprocessing
-            #   - Import into relevant DB tables
             #   - Creating and storing tfidf-models (persist where/how - blob in db?)
 
         # Commit.

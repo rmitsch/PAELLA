@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-10 15:31:33.892
+-- Last modification date: 2017-08-11 13:32:30.961
 
 create schema topac;
 
@@ -13,20 +13,23 @@ CREATE TABLE topac.corpora (
     CONSTRAINT corpora_pk PRIMARY KEY (id)
 );
 
--- Table: document_features
-CREATE TABLE topac.document_features (
+-- Table: corpus_features
+CREATE TABLE topac.corpus_features (
     id serial  NOT NULL,
     title text  NOT NULL,
+    type text  NOT NULL,
+    corpora_id int  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_document_features UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
-    CONSTRAINT document_features_pk PRIMARY KEY (id)
+    CONSTRAINT c_u_corpus_features_title_corpora_id UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT corpus_features_pk PRIMARY KEY (id)
 );
 
--- Table: document_features_in_documents
-CREATE TABLE topac.document_features_in_documents (
+-- Table: corpus_features_in_documents
+CREATE TABLE topac.corpus_features_in_documents (
+    corpus_features_id int  NOT NULL,
     documents_id int  NOT NULL,
-    document_features_id int  NOT NULL,
-    CONSTRAINT document_features_in_documents_pk PRIMARY KEY (documents_id,document_features_id)
+    value text  NOT NULL,
+    CONSTRAINT corpus_features_in_documents_pk PRIMARY KEY (corpus_features_id,documents_id)
 );
 
 -- Table: documents
@@ -34,10 +37,10 @@ CREATE TABLE topac.documents (
     id serial  NOT NULL,
     title text  NOT NULL,
     raw_text text  NOT NULL,
-    refined_text text  NOT NULL,
-    coordinates integer[]  NOT NULL,
-    comment int  NULL,
+    refined_text text  NULL,
+    coordinates integer[]  NULL,
     corpora_id int  NOT NULL,
+    comment int  NULL,
     CONSTRAINT c_u_documents_title_corpora_id UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT documents_pk PRIMARY KEY (id)
 );
@@ -84,10 +87,12 @@ CREATE TABLE topac.topic_models (
     beta real  NOT NULL,
     kappa real  NOT NULL,
     corpora_id int  NOT NULL,
+    corpus_features_id int  NOT NULL,
     runtime int  NOT NULL,
     coordinates integer[]  NOT NULL,
     comment text  NULL,
     CONSTRAINT c_u_topic_models_alpha_beta_kappa_corpora_id UNIQUE (alpha, beta, kappa, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_topic_models_corpora_id_corpus_features_id UNIQUE (corpora_id, corpus_features_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT topic_models_pk PRIMARY KEY (id)
 );
 
@@ -107,23 +112,30 @@ CREATE TABLE topac.topics (
     topic_models_id int  NOT NULL,
     quality int  NOT NULL,
     coordinates integer[]  NOT NULL,
-    document_features_id int  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_topics_topic_number_document_feature_topic_models_id UNIQUE (topic_models_id, topic_number, document_features_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_topics_topic_number_document_feature_topic_models_id UNIQUE (topic_models_id, topic_number) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT topics_pk PRIMARY KEY (id)
 );
 
 -- foreign keys
--- Reference: document_features_in_documents_document_features (table: document_features_in_documents)
-ALTER TABLE topac.document_features_in_documents ADD CONSTRAINT document_features_in_documents_document_features
-    FOREIGN KEY (document_features_id)
-    REFERENCES topac.document_features (id)  
+-- Reference: corpus_features_corpora (table: corpus_features)
+ALTER TABLE topac.corpus_features ADD CONSTRAINT corpus_features_corpora
+    FOREIGN KEY (corpora_id)
+    REFERENCES topac.corpora (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
 
--- Reference: document_features_in_documents_documents (table: document_features_in_documents)
-ALTER TABLE topac.document_features_in_documents ADD CONSTRAINT document_features_in_documents_documents
+-- Reference: corpus_features_in_documents_corpus_features (table: corpus_features_in_documents)
+ALTER TABLE topac.corpus_features_in_documents ADD CONSTRAINT corpus_features_in_documents_corpus_features
+    FOREIGN KEY (corpus_features_id)
+    REFERENCES topac.corpus_features (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: corpus_features_in_documents_documents (table: corpus_features_in_documents)
+ALTER TABLE topac.corpus_features_in_documents ADD CONSTRAINT corpus_features_in_documents_documents
     FOREIGN KEY (documents_id)
     REFERENCES topac.documents (id)  
     NOT DEFERRABLE 
@@ -186,10 +198,10 @@ ALTER TABLE topac.topic_models ADD CONSTRAINT topic_models_corpora
     INITIALLY IMMEDIATE
 ;
 
--- Reference: topics_document_features (table: topics)
-ALTER TABLE topac.topics ADD CONSTRAINT topics_document_features
-    FOREIGN KEY (document_features_id)
-    REFERENCES topac.document_features (id)  
+-- Reference: topic_models_corpus_features (table: topic_models)
+ALTER TABLE topac.topic_models ADD CONSTRAINT topic_models_corpus_features
+    FOREIGN KEY (corpus_features_id)
+    REFERENCES topac.corpus_features (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;

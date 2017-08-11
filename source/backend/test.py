@@ -18,5 +18,5 @@ dbConnector.constructDatabase()
 
 # Import nltk-reuters corpus.
 stopwords = []
-nltk_reuters_corpus = Corpus(name="reuters", corpus_type="nltk-reuters", stopwords=stopwords)
+nltk_reuters_corpus = Corpus(name="nltk-reuters", corpus_type="nltk-reuters", stopwords=stopwords)
 nltk_reuters_corpus.import_corpus("", dbConnector)
