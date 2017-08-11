@@ -9,7 +9,10 @@ COPY requirements.txt /tmp/requirements.txt
 # Install dependencies.
 RUN apk update && \
 	apk add postgresql-dev=9.6.3-r0 && \
-	pip install -r /tmp/requirements.txt
+	pip install -r /tmp/requirements.txt \
+	# Run setup (making sure that lda2vec can run).
+	sudo python -m spacy.en.download
+
 
 # Declare which port(s) should be exposed.
 EXPOSE 5000

@@ -32,3 +32,8 @@ py3env
 
 # DB log files.
 logs
+
+# Intermediate files.
+*.npz
+*.hdf5
+*.hd5
