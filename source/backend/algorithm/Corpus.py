@@ -9,18 +9,22 @@ import logging
 import re
 
 
-# Class representing a corpus in its entirety.
-# Used for importing corpora.
 class Corpus:
+    """
+    Class representing a corpus in its entirety.
+    Used for importing corpora.
+    """
     # Supported corpora types.
     # Should ultimately boil down to one single, standardized CSV template.
     supportedCorporaTypes = ['nltk-reuters']
 
-    # Init instance of Corpus.
-    # @param name
-    # @param corpus_type
-    # @param stopwords List of stopwords.
     def __init__(self, name, corpus_type, stopwords):
+        """
+        Init instance of Corpus.
+        :param name:
+        :param corpus_type:
+        :param stopwords:
+        """
         logger = logging.getLogger("topac")
 
         self.name = name
@@ -38,18 +42,22 @@ class Corpus:
     # differently. Ultimately, only one standardized corpus structure should be used).
     # @param path Path to file/folder where corpus is located.
     # @param dbConnector
-    def import_corpus(self, path, dbConnector):
+    def import_corpus(self, path, db_connector):
         if self.corpus_type == "nltk-reuters":
-            self.import_nltk_reuters_corpus(path, dbConnector)
+            self.import_nltk_reuters_corpus(path, db_connector)
         else:
             print("blab")
 
-    # Import nltk-reuter corpus.
-    # @param path
-    # @param dbConnector
-    def import_nltk_reuters_corpus(self, path, dbConnector):
+    def import_nltk_reuters_corpus(self, path, db_connector):
+        """
+        Import nltk-reuter corpus.
+        :param path:
+        :param db_connector:
+        :return:
+        """
+
         # Prepare cursor.
-        cursor = dbConnector.connection.cursor()
+        cursor = db_connector.connection.cursor()
 
         # Import corpus.
         cursor.execute("insert into topac.corpora (title) values (%s) returning id", (self.name,))
@@ -93,12 +101,40 @@ class Corpus:
                            "values (%s, %s, %s)",
                            (corpus_feature_id, document_id, nltk.corpus.reuters.categories(fileids=[fileID])))
 
-            # Exclude special signs: All ; & > < = numbers : , . ' "
-            #print(re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc))
             # Exclude one-letter words
             # Next steps:
             #   - Text preprocessing
             #   - Creating and storing tfidf-models (persist where/how - blob in db?)
 
-        # Commit.
-        dbConnector.connection.commit()
+        # Commit and store corpus with raw text in DB.
+            db_connector.connection.commit()
+
+        # Refine corpus text.
+        self.refine_corpus_text(db_connector)
+
+    def refine_corpus_text(self, db_connector):
+        """
+        Preprocess and refine raw texts for entire corpus.
+        :param dbConnector:
+        :return:
+        """
+
+        # 1. Prepare cursor.
+        cursor = db_connector.connection.cursor()
+
+        # 2. Load all documents from database.
+        cursor.execute("select"
+                       "    d.id, "
+                       "    d.raw_text "
+                       "from "
+                       "    topac.documents d "
+                       "inner join topac.corpora c on"
+                       "    c.title = %s and"
+                       "    c.id    = d.corpora_id ",
+                       (self.name,))
+        documents = cursor.fetchall()
+
+        # Exclude special signs: All ; & > < = numbers : , . ' "
+        #refined_text = re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc)
+
+        #return refined_text
