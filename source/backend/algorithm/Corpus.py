@@ -3,10 +3,12 @@
 # Class for connecting to database. Uses exactly one connection.
 #
 
-import backend.utils.Utils as Utils
 import nltk as nltk
+from pattern3 import vector as pattern_vector
 import logging
 import re
+import gensim
+from backend.algorithm.IterableGensimDoc2BowCorpus import IterableGensimDoc2BowCorpus
 
 
 class Corpus:
@@ -59,6 +61,9 @@ class Corpus:
         # Prepare cursor.
         cursor = db_connector.connection.cursor()
 
+        # Prepare list of documents. Used for preprocessing.
+        documents = []
+
         # Import corpus.
         cursor.execute("insert into topac.corpora (title) values (%s) returning id", (self.name,))
         corpus_id = cursor.fetchone()[0]
@@ -101,40 +106,71 @@ class Corpus:
                            "values (%s, %s, %s)",
                            (corpus_feature_id, document_id, nltk.corpus.reuters.categories(fileids=[fileID])))
 
-            # Exclude one-letter words
-            # Next steps:
-            #   - Text preprocessing
-            #   - Creating and storing tfidf-models (persist where/how - blob in db?)
+            # Add to list of documents.
+            documents.append({"db_id": document_id, "raw_text": doc})
 
         # Commit and store corpus with raw text in DB.
-            db_connector.connection.commit()
+        db_connector.connection.commit()
 
         # Refine corpus text.
-        self.refine_corpus_text(db_connector)
+        self.refine_corpus_text(db_connector, documents)
 
-    def refine_corpus_text(self, db_connector):
+    def refine_corpus_text(self, db_connector, documents):
         """
         Preprocess and refine raw texts for entire corpus.
         :param dbConnector:
+        :param documents:
         :return:
         """
 
         # 1. Prepare cursor.
         cursor = db_connector.connection.cursor()
 
-        # 2. Load all documents from database.
-        cursor.execute("select"
-                       "    d.id, "
-                       "    d.raw_text "
-                       "from "
-                       "    topac.documents d "
-                       "inner join topac.corpora c on"
-                       "    c.title = %s and"
-                       "    c.id    = d.corpora_id ",
-                       (self.name,))
-        documents = cursor.fetchall()
+        # 2. Loop over documents, remove unwanted characters.
+        # Note: Assuming performance isn't critical for document import.
+        for doc in documents:
+            # Make everything lowercase and exclude special signs: All ; & > < = numbers : , . ' "
+            doc["text"] = re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc["raw_text"].lower())
+            # Tokenize text.
+            doc["tokenized_text"] = [pattern_vector.stem(word, stemmer=pattern_vector.LEMMA) for word in doc["text"].split()]
 
-        # Exclude special signs: All ; & > < = numbers : , . ' "
-        #refined_text = re.sub(r"([;]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|(\d+)|[']|[\"])", "", doc)
+        # 3. Gather tokens.
+        tokenized_documents = [doc["tokenized_text"] for doc in documents]
 
-        #return refined_text
+        # 4. Build dictionary.
+        dictionary = gensim.corpora.Dictionary(tokenized_documents)
+        # Remove stop words and words appearing only once.
+        stopword_list = nltk.corpus.stopwords.words('english')
+        # Add manual stopword list to default one.
+        self.stopwords = ["automotive"]
+        stopword_list += self.stopwords
+        # Filter stopwords out of dictionary.
+        ids_to_remove = [dictionary.token2id[stopword] for stopword in stopword_list if stopword in dictionary.token2id]
+        dictionary.filter_tokens(ids_to_remove)
+        # Filter words occuring only once (reasonable?).
+        ids_to_remove = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
+        dictionary.filter_tokens(ids_to_remove)
+        # Remove gaps in sequence after removing stopwords.
+        dictionary.compactify()
+        # todo Save dictionary in database as blob.
+
+        # 5. Build iterable doc2bow corpus.
+        doc2bow_corpus = IterableGensimDoc2BowCorpus(tokenized_documents=tokenized_documents, dictionary=dictionary)
+
+        # Build tfidf-matrix.
+        corpus_tfidf = gensim.models.TfidfModel(doc2bow_corpus)[doc2bow_corpus]
+        print(corpus_tfidf)
+
+        # 3. Store results in database.
+            # cursor.execute("update "
+            #                "topac.documents "
+            #                "set"
+            #                "    refined_text = %s "
+            #                "where"
+            #                "    id = %s",
+            #                (refined_text, doc["db_id"]))
+
+
+
+        # X. Commit transaction.
+        db_connector.connection.commit()

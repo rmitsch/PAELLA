@@ -36,6 +36,9 @@ class DBConnector:
         cursor = self.connection.cursor()
         # Execute ddl.sql.
         try:
+            # todo Remove: For testing purposes - database reset at startup.
+            cursor.execute("drop schema if exists topac cascade")
+            self.connection.commit()
             cursor.execute(open("backend/database/ddl.sql", "r").read())
             self.connection.commit()
         except:
