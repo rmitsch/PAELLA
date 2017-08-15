@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-11 13:32:30.961
+-- Last modification date: 2017-08-15 15:23:19.233
 
 create schema topac;
 
@@ -8,6 +8,8 @@ create schema topac;
 CREATE TABLE topac.corpora (
     id serial  NOT NULL,
     title text  NOT NULL,
+    gensim_dictionary bytea  NULL,
+    gensim_corpus bytea  NULL,
     comment text  NULL,
     CONSTRAINT c_u_corpora_title UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpora_pk PRIMARY KEY (id)
@@ -20,16 +22,39 @@ CREATE TABLE topac.corpus_features (
     type text  NOT NULL,
     corpora_id int  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_corpus_features_title_corpora_id UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_corpus_features_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpus_features_pk PRIMARY KEY (id)
 );
 
 -- Table: corpus_features_in_documents
 CREATE TABLE topac.corpus_features_in_documents (
+    id serial  NOT NULL,
     corpus_features_id int  NOT NULL,
     documents_id int  NOT NULL,
     value text  NOT NULL,
-    CONSTRAINT corpus_features_in_documents_pk PRIMARY KEY (corpus_features_id,documents_id)
+    CONSTRAINT c_u_cfid_ocuments_cf_id_d_id UNIQUE (corpus_features_id, documents_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT corpus_features_in_documents_pk PRIMARY KEY (id)
+);
+
+-- Table: corpus_features_in_documents_in_doc2vec_models
+CREATE TABLE topac.corpus_features_in_documents_in_doc2vec_models (
+    doc2vec_models_id int  NOT NULL,
+    corpus_features_in_documents_id int  NOT NULL,
+    coordinates int[]  NOT NULL,
+    CONSTRAINT corpus_features_in_documents_in_doc2vec_models_pk PRIMARY KEY (doc2vec_models_id,corpus_features_in_documents_id)
+);
+
+-- Table: doc2vec_models
+CREATE TABLE topac.doc2vec_models (
+    id serial  NOT NULL,
+    corpora_id int  NOT NULL,
+    gensim_size int  NOT NULL,
+    gensim_window int  NOT NULL,
+    gensim_alpha real  NOT NULL,
+    gensim_iter int  NOT NULL,
+    gensim_doc2vec_model bytea  NOT NULL,
+    comment text  NULL,
+    CONSTRAINT doc2vec_models_pk PRIMARY KEY (id)
 );
 
 -- Table: documents
@@ -41,7 +66,7 @@ CREATE TABLE topac.documents (
     coordinates integer[]  NULL,
     corpora_id int  NOT NULL,
     comment int  NULL,
-    CONSTRAINT c_u_documents_title_corpora_id UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_documents_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT documents_pk PRIMARY KEY (id)
 );
 
@@ -65,19 +90,27 @@ CREATE TABLE topac.terms (
 
 -- Table: terms_in_corpora
 CREATE TABLE topac.terms_in_corpora (
+    id serial  NOT NULL,
     corpora_id int  NOT NULL,
     terms_id int  NOT NULL,
-    coordinates integer[]  NOT NULL,
-    frequency int  NOT NULL,
-    CONSTRAINT terms_in_corpora_pk PRIMARY KEY (corpora_id,terms_id)
+    CONSTRAINT c_u_terms_in_corpora_corpora_id_tems_id UNIQUE (corpora_id, terms_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT terms_in_corpora_pk PRIMARY KEY (id)
+);
+
+-- Table: terms_in_doc2vec_model
+CREATE TABLE topac.terms_in_doc2vec_model (
+    doc2vec_models_id int  NOT NULL,
+    terms_in_corpora_id int  NOT NULL,
+    coordinates int[]  NOT NULL,
+    CONSTRAINT terms_in_doc2vec_model_pk PRIMARY KEY (doc2vec_models_id,terms_in_corpora_id)
 );
 
 -- Table: terms_in_topics
 CREATE TABLE topac.terms_in_topics (
-    terms_id int  NOT NULL,
     topics_id int  NOT NULL,
+    terms_in_corpora_id int  NOT NULL,
     probability real  NOT NULL CHECK (probability > 0),
-    CONSTRAINT terms_in_topics_pk PRIMARY KEY (terms_id,topics_id)
+    CONSTRAINT terms_in_topics_pk PRIMARY KEY (topics_id,terms_in_corpora_id)
 );
 
 -- Table: topic_models
@@ -118,6 +151,14 @@ CREATE TABLE topac.topics (
 );
 
 -- foreign keys
+-- Reference: cfid_in_doc2vec_models_corpus_features_in_documents (table: corpus_features_in_documents_in_doc2vec_models)
+ALTER TABLE topac.corpus_features_in_documents_in_doc2vec_models ADD CONSTRAINT cfid_in_doc2vec_models_corpus_features_in_documents
+    FOREIGN KEY (corpus_features_in_documents_id)
+    REFERENCES topac.corpus_features_in_documents (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
 -- Reference: corpus_features_corpora (table: corpus_features)
 ALTER TABLE topac.corpus_features ADD CONSTRAINT corpus_features_corpora
     FOREIGN KEY (corpora_id)
@@ -138,6 +179,22 @@ ALTER TABLE topac.corpus_features_in_documents ADD CONSTRAINT corpus_features_in
 ALTER TABLE topac.corpus_features_in_documents ADD CONSTRAINT corpus_features_in_documents_documents
     FOREIGN KEY (documents_id)
     REFERENCES topac.documents (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: corpus_features_in_documents_in_doc2vec_models_doc2vec_models (table: corpus_features_in_documents_in_doc2vec_models)
+ALTER TABLE topac.corpus_features_in_documents_in_doc2vec_models ADD CONSTRAINT corpus_features_in_documents_in_doc2vec_models_doc2vec_models
+    FOREIGN KEY (doc2vec_models_id)
+    REFERENCES topac.doc2vec_models (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: doc2vec_models_corpora (table: doc2vec_models)
+ALTER TABLE topac.doc2vec_models ADD CONSTRAINT doc2vec_models_corpora
+    FOREIGN KEY (corpora_id)
+    REFERENCES topac.corpora (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
@@ -174,10 +231,26 @@ ALTER TABLE topac.terms_in_corpora ADD CONSTRAINT terms_in_corpora_terms
     INITIALLY IMMEDIATE
 ;
 
--- Reference: terms_in_topics_terms (table: terms_in_topics)
-ALTER TABLE topac.terms_in_topics ADD CONSTRAINT terms_in_topics_terms
-    FOREIGN KEY (terms_id)
-    REFERENCES topac.terms (id)  
+-- Reference: terms_in_doc2vec_model_doc2vec_models (table: terms_in_doc2vec_model)
+ALTER TABLE topac.terms_in_doc2vec_model ADD CONSTRAINT terms_in_doc2vec_model_doc2vec_models
+    FOREIGN KEY (doc2vec_models_id)
+    REFERENCES topac.doc2vec_models (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: terms_in_doc2vec_model_terms_in_corpora (table: terms_in_doc2vec_model)
+ALTER TABLE topac.terms_in_doc2vec_model ADD CONSTRAINT terms_in_doc2vec_model_terms_in_corpora
+    FOREIGN KEY (terms_in_corpora_id)
+    REFERENCES topac.terms_in_corpora (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: terms_in_topics_terms_in_corpora (table: terms_in_topics)
+ALTER TABLE topac.terms_in_topics ADD CONSTRAINT terms_in_topics_terms_in_corpora
+    FOREIGN KEY (terms_in_corpora_id)
+    REFERENCES topac.terms_in_corpora (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
