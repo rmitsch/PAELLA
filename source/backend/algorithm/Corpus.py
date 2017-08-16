@@ -41,10 +41,11 @@ class Corpus:
         self.stopwords = stopwords
         # Create list of corpus_features.
         self.corpus_features = {
-            "document_id": {"type": "int"}
+            "document_id": {"name": "document_id", "type": "int"}
         }
         for corpus_feature in corpus_features:
-            self.corpus_features[corpus_feature["name"]] = {"type": corpus_feature["type"]}
+            self.corpus_features[corpus_feature["name"]] = {"name": corpus_feature["name"],
+                                                            "type": corpus_feature["type"]}
 
         # Check if corpus_type is supported.
         if corpus_type not in Corpus.supportedCorporaTypes:
@@ -113,7 +114,11 @@ class Corpus:
             # Note: With generic corpus, data has to be loaded from corresponding column in dataframe/dict.
             new_document = {"id": document_id,
                             "raw_text": doc,
-                            self.corpus_features["categories"]["id"]: nltk.corpus.reuters.categories(fileids=[fileID])}
+                            "features": {
+                                self.corpus_features["document_id"]["name"]: document_id,
+                                self.corpus_features["categories"]["name"]:
+                                    nltk.corpus.reuters.categories(fileids=[fileID])[0]
+                            }}
             documents.append(new_document)
 
         # Commit and store corpus with raw text in DB.
@@ -271,7 +276,7 @@ class Corpus:
         # ---------------------
         # 3. For topic models: Preprocess corpus and store relevant information for each corpus feature.
         # ---------------------
-        for corpus_feature in corpus_features:
+        for corpus_feature_name, corpus_feature in corpus_features.items():
             dictionary = Corpus.preprocess_corpus_feature(cursor=cursor,
                                                           documents=documents,
                                                           corpus_feature=corpus_feature)
@@ -301,8 +306,8 @@ class Corpus:
         # ---------------------
         # 1. Concatenate documents with same value for current corpus_feature to one document.
         # ---------------------
-        Corpus.merge_documents_by_feature_value(documents=documents,
-                                                corpus_feature=corpus_feature)
+        Corpus.merge_tokenized_document_texts_by_feature_value(documents=documents,
+                                                               corpus_feature=corpus_feature)
 
         # ---------------------
         # 2. Build dictionary.
@@ -328,8 +333,35 @@ class Corpus:
         return 0
 
     @staticmethod
-    def merge_documents_by_feature_value(documents, corpus_feature):
-        print("merging")
+    def merge_tokenized_document_texts_by_feature_value(documents, corpus_feature):
+        """
+        Merges tokenized document texts by their documents' values for the specified feature.
+        :param documents:
+        :param corpus_feature:
+        :return: List of
+        """
+        merged_tokenized_document_texts_by_feature = {}
+
+        # Iterate over all documents and group their tokenized_texts by feature value.
+        for document in documents:
+            feature_value = document["features"][corpus_feature["name"]]
+
+            # Group documents by feature value.
+            if feature_value in merged_tokenized_document_texts_by_feature:
+                merged_tokenized_document_texts_by_feature[feature_value].extend(document["tokenized_text"])
+            else:
+                merged_tokenized_document_texts_by_feature[feature_value] = document["tokenized_text"]
+
+        # NEXT:
+        #     -   lda yields topic-to-doc distr. in the same order as it received documents in the dict.
+        #         meaning: we have to remember the sequence of feature values and their doc. -> stored in
+        #         topac.corpus_features.gensim_value_sequence. Use that retrieve documents by their values
+        #         and associate them with topic-in-doc-probabilities in the correct order
+        #     -   finish tm preprocessing by feature
+        #     -   add topic model creation by feature
+        #     -   add doc2vec creation by feature
+
+        return merged_tokenized_document_texts_by_feature.values()
 
     @staticmethod
     def import_terms(cursor, dictionary, corpus_id):
