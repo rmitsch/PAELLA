@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-15 15:23:19.233
+-- Last modification date: 2017-08-16 10:52:43.32
 
 create schema topac;
 
@@ -8,8 +8,6 @@ create schema topac;
 CREATE TABLE topac.corpora (
     id serial  NOT NULL,
     title text  NOT NULL,
-    gensim_dictionary bytea  NULL,
-    gensim_corpus bytea  NULL,
     comment text  NULL,
     CONSTRAINT c_u_corpora_title UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpora_pk PRIMARY KEY (id)
@@ -21,6 +19,8 @@ CREATE TABLE topac.corpus_features (
     title text  NOT NULL,
     type text  NOT NULL,
     corpora_id int  NOT NULL,
+    gensim_dictionary bytea  NULL,
+    gensim_corpus bytea  NULL,
     comment text  NULL,
     CONSTRAINT c_u_corpus_features_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpus_features_pk PRIMARY KEY (id)

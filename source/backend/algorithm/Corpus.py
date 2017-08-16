@@ -11,7 +11,7 @@ import re
 import gensim
 from backend.algorithm.IterableGensimDoc2BowCorpus import IterableGensimDoc2BowCorpus
 from psycopg2 import Binary
-from psycopg2 import InternalError
+
 
 class Corpus:
     """
@@ -22,12 +22,15 @@ class Corpus:
     # Should ultimately boil down to one single, standardized CSV template.
     supportedCorporaTypes = ['nltk-reuters']
 
-    def __init__(self, name, corpus_type, stopwords):
+    def __init__(self, name, corpus_type, corpus_features, stopwords):
         """
         Init instance of Corpus.
         :param name:
-        :param corpus_type:
-        :param stopwords:
+        :param corpus_type: Structural type of corpus. Should ultimately converge to unified format.
+        :param corpus_features: List of dictionaries containing values describing corpus features: name, type.
+                                A unique ID is inferred automatically from DB IDs and doesn't have to be specified.
+                                Note that names have to coincide with column names containing those features.
+        :param stopwords: List of stopwords to remove before generating models.
         """
         logger = logging.getLogger("topac")
 
@@ -36,26 +39,32 @@ class Corpus:
         # Initialize document collection with empty dataframe.
         self.documents = {}
         self.stopwords = stopwords
+        # Create list of corpus_features.
+        self.corpus_features = {
+            "document_id": {"type": "int"}
+        }
+        for corpus_feature in corpus_features:
+            self.corpus_features[corpus_feature["name"]] = {"type": corpus_feature["type"]}
 
         # Check if corpus_type is supported.
         if corpus_type not in Corpus.supportedCorporaTypes:
             logger.error("Corpus type not supported")
 
-    # Imports specified corpus.
-    # @param corpus_type Type of corpus relating to its structure (different corpus structures have to be processed
-    # differently. Ultimately, only one standardized corpus structure should be used).
-    # @param path Path to file/folder where corpus is located.
-    # @param dbConnector
-    def import_corpus(self, path, db_connector):
+    def compile_corpus(self, path, db_connector):
+        """
+        Imports specified corpus.
+        :param path: Path to file/folder where corpus is located.
+        :param db_connector:
+        :return:
+        """
         if self.corpus_type == "nltk-reuters":
-            self.import_nltk_reuters_corpus(path, db_connector)
+            self.import_nltk_reuters_corpus(db_connector)
         else:
             print("blab")
 
-    def import_nltk_reuters_corpus(self, path, db_connector):
+    def import_nltk_reuters_corpus(self, db_connector):
         """
         Import nltk-reuter corpus.
-        :param path:
         :param db_connector:
         :return:
         """
@@ -67,39 +76,16 @@ class Corpus:
         documents = []
 
         # Import corpus.
-        cursor.execute("insert into "
-                       "    topac.corpora ("
-                       "    title"
-                       ") "
-                       "values (%s) "
-                       "returning id",
-                       (self.name,))
-        corpus_id = cursor.fetchone()[0]
+        corpus_id = Corpus.import_corpus(cursor, self.name)
 
-        # todo Refactor into individual functions for each table.
         # Import corpus features.
-        # Categories.
-        cursor.execute("insert into "
-                       "    topac.corpus_features ("
-                       "        title, "
-                       "        type, "
-                       "        corpora_id"
-                       ")"
-                       "values ('categories', 'text', %s) "
-                       "returning id",
-                       (corpus_id,))
-        corpus_categories_feature_id = cursor.fetchone()[0]
-        # Document IDs.
-        cursor.execute("insert into "
-                       "    topac.corpus_features ("
-                       "        title, "
-                       "        type, "
-                       "        corpora_id"
-                       ")"
-                       "values ('document_ids', 'int', %s) "
-                       "returning id",
-                       (corpus_id,))
-        corpus_document_ids_feature_id = cursor.fetchone()[0]
+        for corpus_feature_name, corpus_feature in self.corpus_features.items():
+            corpus_feature_id = Corpus.import_corpus_feature(cursor=cursor,
+                                                             corpus_id=corpus_id,
+                                                             feature_title=corpus_feature_name,
+                                                             feature_type=corpus_feature["type"])
+            # Update dict for corpus features.
+            self.corpus_features[corpus_feature_name]["id"] = corpus_feature_id
 
         # Define and import stopwords.
         self.generate_and_import_stopwords(cursor, corpus_id)
@@ -108,52 +94,128 @@ class Corpus:
             # Fetch document.
             doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip()
 
-            # Import documents in DB.
-            cursor.execute("insert into "
-                           "topac.documents ("
-                           "    title, "
-                           "    raw_text, "
-                           "    corpora_id"
-                           ")"
-                           "values (%s, %s, %s) "
-                           "returning id",
-                           (fileID, doc, corpus_id))
-            document_id = cursor.fetchone()[0]
+            # Import document in DB.
+            document_id = Corpus.import_document(cursor=cursor, corpus_id=corpus_id, title=fileID, raw_text=doc)
 
             # Import document feature values.
-            # Categories.
-            cursor.execute("insert into "
-                           "topac.corpus_features_in_documents ("
-                           "    corpus_features_id, "
-                           "    documents_id, "
-                           "    value"
-                           ") "
-                           "values (%s, %s, %s)",
-                           (corpus_categories_feature_id, document_id, nltk.corpus.reuters.categories(fileids=[fileID])))
             # Contextual document ID / title.
-            cursor.execute("insert into "
-                           "topac.corpus_features_in_documents ("
-                           "    corpus_features_id, "
-                           "    documents_id, "
-                           "    value"
-                           ") "
-                           "values (%s, %s, %s)",
-                           (corpus_document_ids_feature_id, document_id, document_id))
+            Corpus.import_corpus_feature_in_document(cursor=cursor,
+                                                     corpus_feature_id=self.corpus_features["document_id"]["id"],
+                                                     document_id=document_id,
+                                                     value=document_id)
+            # Categories.
+            Corpus.import_corpus_feature_in_document(cursor=cursor,
+                                                     corpus_feature_id=self.corpus_features["categories"]["id"],
+                                                     document_id=document_id,
+                                                     value=nltk.corpus.reuters.categories(fileids=[fileID]))
 
             # Add to list of documents.
-            documents.append({"db_id": document_id, "raw_text": doc})
+            # Note: With generic corpus, data has to be loaded from corresponding column in dataframe/dict.
+            new_document = {"id": document_id,
+                            "raw_text": doc,
+                            self.corpus_features["categories"]["id"]: nltk.corpus.reuters.categories(fileids=[fileID])}
+            documents.append(new_document)
 
         # Commit and store corpus with raw text in DB.
         db_connector.connection.commit()
 
         # Refine corpus text.
-        self.preprocess_corpus(db_connector, documents, corpus_id)
+        self.preprocess_corpus(db_connector=db_connector,
+                               documents=documents,
+                               corpus_id=corpus_id,
+                               corpus_features=self.corpus_features)
+
+    @staticmethod
+    def import_corpus(cursor, corpus_name):
+        """
+        Import corpus in database.
+        :param cursor:
+        :param corpus_name:
+        :return: ID of new corpus.
+        """
+        cursor.execute("insert into "
+                       "    topac.corpora ("
+                       "    title"
+                       ") "
+                       "values (%s) "
+                       "returning id",
+                       (corpus_name,))
+
+        return cursor.fetchone()[0]
+
+    @staticmethod
+    def import_corpus_feature(cursor, corpus_id, feature_title, feature_type):
+        """
+        Adds entry in topac.corpus_features.
+        :param cursor:
+        :param corpus_id:
+        :param feature_title:
+        :param feature_type:
+        :return: ID of newly added corpus feature.
+        """
+        cursor.execute("insert into "
+                       "    topac.corpus_features ("
+                       "        title, "
+                       "        type, "
+                       "        corpora_id"
+                       ")"
+                       "values (%s, %s, %s) "
+                       "returning id",
+                       (feature_title, feature_type, corpus_id))
+
+        return cursor.fetchone()[0]
+
+    @staticmethod
+    def import_document(cursor, corpus_id, title, raw_text):
+        """
+        Adds entry in topac.documents.
+        :param cursor:
+        :param corpus_id:
+        :param title:
+        :param raw_text:
+        :return: ID of newly added document.
+        """
+
+        cursor.execute("insert into "
+                       "topac.documents ("
+                       "    title, "
+                       "    raw_text, "
+                       "    corpora_id"
+                       ")"
+                       "values (%s, %s, %s) "
+                       "returning id",
+                       (title, raw_text, corpus_id))
+
+        return cursor.fetchone()[0]
+
+    @staticmethod
+    def import_corpus_feature_in_document(cursor, corpus_feature_id, document_id, value):
+        """
+        Adds entry in topac.corpus_features_in_documents.
+        :param cursor:
+        :param corpus_feature_id:
+        :param document_id:
+        :param value:
+        :return: ID of newly generated entry.
+        """
+
+        cursor.execute("insert into "
+                       "topac.corpus_features_in_documents ("
+                       "    corpus_features_id, "
+                       "    documents_id, "
+                       "    value"
+                       ") "
+                       "values (%s, %s, %s) "
+                       "returning id",
+                       (corpus_feature_id, document_id, value))
+
+        return cursor.fetchone()[0]
 
     def generate_and_import_stopwords(self, cursor, corpus_id):
         """
         Define and import stopwords.
         :param cursor:
-        :param cursor_id:
+        :param corpus_id:
         :return:
         """
 
@@ -171,12 +233,13 @@ class Corpus:
                            "do nothing",
                            (stopword, corpus_id))
 
-    def preprocess_corpus(self, db_connector, documents, corpus_id):
+    def preprocess_corpus(self, db_connector, documents, corpus_id, corpus_features):
         """
-        Preprocess and refine raw texts for entire corpus.
+        Preprocess and refine raw texts for entire corpus and all corpus features.
         :param db_connector:
         :param documents:
         :param corpus_id:
+        :param corpus_features:
         :return:
         """
         # ---------------------
@@ -203,43 +266,70 @@ class Corpus:
                            "    refined_text = %s "
                            "where"
                            "    id = %s ",
-                           (doc["text"], doc["db_id"]))
+                           (doc["text"], doc["id"]))
 
         # ---------------------
-        # 3. Gather tokens.
+        # 3. For topic models: Preprocess corpus and store relevant information for each corpus feature.
         # ---------------------
-        tokenized_documents = [doc["tokenized_text"] for doc in documents]
+        for corpus_feature in corpus_features:
+            dictionary = Corpus.preprocess_corpus_feature(cursor=cursor,
+                                                          documents=documents,
+                                                          corpus_feature=corpus_feature)
 
-        # ---------------------
-        # 4. Build dictionary.
-        # ---------------------
-        dictionary = gensim.corpora.Dictionary(tokenized_documents)
-        # Filter stopwords out of dictionary.
-        ids_to_remove = [dictionary.token2id[stopword] for stopword in self.stopwords if stopword in dictionary.token2id]
-        dictionary.filter_tokens(ids_to_remove)
-        # Filter words occuring only once (reasonable?).
-        ids_to_remove = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
-        dictionary.filter_tokens(ids_to_remove)
-        # Remove gaps in sequence after removing stopwords.
-        dictionary.compactify()
-
-        # ---------------------
-        # 5. Import terms and term-corpus associations.
-        # ---------------------
-        Corpus.import_terms(cursor=cursor, dictionary=dictionary, corpus_id=corpus_id)
-
-        # ---------------------
-        # 6. Build and save corpus for LDA-based topic modeling.
-        # ---------------------
-        Corpus.generate_and_import_corpus(cursor=cursor,
-                                          tokenized_documents=tokenized_documents,
-                                          dictionary=dictionary,
-                                          corpus_id=corpus_id)
+            # If current feature (and dictionary) is document ID: Store terms and term-corpus associations
+            # in database.
+            # if corpus_feature["name"] == "document_id":
+            #     Corpus.import_terms(cursor=cursor,
+            #                         dictionary=dictionary,
+            #                         corpus_id=corpus_id)
 
         # ---------------------
         # x. Commit transaction.
         # ---------------------
         db_connector.connection.commit()
+
+    @staticmethod
+    def preprocess_corpus_feature(cursor, documents, corpus_feature):
+        """
+        Preprocess and refine raw texts for selected corpus feature.
+        :param cursor:
+        :param documents:
+        :param corpus_feature:
+        :return: gensim-dictionary created from aggregated documents.
+        """
+
+        # ---------------------
+        # 1. Concatenate documents with same value for current corpus_feature to one document.
+        # ---------------------
+        Corpus.merge_documents_by_feature_value(documents=documents,
+                                                corpus_feature=corpus_feature)
+
+        # ---------------------
+        # 2. Build dictionary.
+        # ---------------------
+        # dictionary = gensim.corpora.Dictionary(tokenized_documents)
+        # # Filter stopwords out of dictionary.
+        # ids_to_remove = [dictionary.token2id[stopword] for stopword in self.stopwords if stopword in dictionary.token2id]
+        # dictionary.filter_tokens(ids_to_remove)
+        # # Filter words occuring only once (reasonable?).
+        # ids_to_remove = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
+        # dictionary.filter_tokens(ids_to_remove)
+        # # Remove gaps in sequence after removing stopwords.
+        # dictionary.compactify()
+        #
+        # # ---------------------
+        # # 6. Build and save corpus for LDA-based topic modeling.
+        # # ---------------------
+        # Corpus.generate_and_import_gensim_corpus(cursor=cursor,
+        #                                          tokenized_documents=tokenized_documents,
+        #                                          dictionary=dictionary,
+        #                                          corpus_feature_id=corpus_feature["id"])
+
+        return 0
+
+    @staticmethod
+    def merge_documents_by_feature_value(documents, corpus_feature):
+        print("merging")
 
     @staticmethod
     def import_terms(cursor, dictionary, corpus_id):
@@ -300,13 +390,13 @@ class Corpus:
                                       ','.join(["%s"] * len(tuples_to_insert)), tuples_to_insert))
 
     @staticmethod
-    def generate_and_import_corpus(cursor, tokenized_documents, dictionary, corpus_id):
+    def generate_and_import_gensim_corpus(cursor, tokenized_documents, dictionary, corpus_feature_id):
         """
         Generates and imports corpus in DB.
         :param cursor: Cursor to current DB transaction.
         :param tokenized_documents:
         :param dictionary:
-        :param corpus_id:
+        :param corpus_feature_id:
         :return:
         """
 
@@ -326,7 +416,7 @@ class Corpus:
         gensim.corpora.MmCorpus.serialize("tmp_corpus_file.mm", tfidf_corpus)
 
         # Transfer files to database.
-        cursor.execute("update topac.corpora "
+        cursor.execute("update topac.corpus_features "
                        "set "
                        "    gensim_dictionary = %s, "
                        "    gensim_corpus = %s "
@@ -335,7 +425,7 @@ class Corpus:
                        (
                            Binary(open("tmp_dict_file.dict", "rb").read()),
                            Binary(open("tmp_corpus_file.mm", "rb").read()),
-                           corpus_id
+                           corpus_feature_id
                        ))
 
         # Remove temporary files.
