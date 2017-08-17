@@ -258,7 +258,7 @@ class Corpus:
         # Note: Assuming performance isn't critical for document import.
         for doc in documents:
             # Make everything lowercase and exclude special signs: All ; & > < = numbers : , . ' "
-            doc["text"] = re.sub(r"([;]|[(]|[)]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|[-]|(\d+)|[']|[\"])", "", doc["raw_text"].lower())
+            doc["text"] = re.sub(r"([;]|[(]|[)]|[/]|[\\]|[$]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|[-]|(\d+)|[']|[\"])", "", doc["raw_text"].lower())
             # Tokenize text.
             doc["tokenized_text"] = [pattern_vector.stem(word, stemmer=pattern_vector.LEMMA) for word in doc["text"].split()]
             # Remove stopwords from text.
@@ -279,14 +279,15 @@ class Corpus:
         for corpus_feature_name, corpus_feature in corpus_features.items():
             dictionary = Corpus.preprocess_corpus_feature(cursor=cursor,
                                                           documents=documents,
-                                                          corpus_feature=corpus_feature)
+                                                          corpus_feature=corpus_feature,
+                                                          stopwords=self.stopwords)
 
             # If current feature (and dictionary) is document ID: Store terms and term-corpus associations
             # in database.
-            # if corpus_feature["name"] == "document_id":
-            #     Corpus.import_terms(cursor=cursor,
-            #                         dictionary=dictionary,
-            #                         corpus_id=corpus_id)
+            if corpus_feature["name"] == "document_id":
+                Corpus.import_terms(cursor=cursor,
+                                    dictionary=dictionary,
+                                    corpus_id=corpus_id)
 
         # ---------------------
         # x. Commit transaction.
@@ -294,43 +295,61 @@ class Corpus:
         db_connector.connection.commit()
 
     @staticmethod
-    def preprocess_corpus_feature(cursor, documents, corpus_feature):
+    def preprocess_corpus_feature(cursor, documents, corpus_feature, stopwords):
         """
         Preprocess and refine raw texts for selected corpus feature.
         :param cursor:
         :param documents:
         :param corpus_feature:
+        :param stopwords:
         :return: gensim-dictionary created from aggregated documents.
         """
 
         # ---------------------
         # 1. Concatenate documents with same value for current corpus_feature to one document.
         # ---------------------
-        Corpus.merge_tokenized_document_texts_by_feature_value(documents=documents,
-                                                               corpus_feature=corpus_feature)
+        tokenized_merged_documents_dict = Corpus.merge_tokenized_document_texts_by_feature_value(
+            documents=documents,
+            corpus_feature=corpus_feature
+        )
+
+        # Note that feature values and merged documents are sorted in the same order -
+        # hence it's possible later on to use the sequence of feature values to determine
+        # topic-probability associations.
+        feature_values = list(tokenized_merged_documents_dict.keys())
+        tokenized_merged_documents = list(tokenized_merged_documents_dict.values())
 
         # ---------------------
-        # 2. Build dictionary.
+        # 2. Store sequence feature_values (for later retrieval of topic-document probabilities after TM building.
         # ---------------------
-        # dictionary = gensim.corpora.Dictionary(tokenized_documents)
-        # # Filter stopwords out of dictionary.
-        # ids_to_remove = [dictionary.token2id[stopword] for stopword in self.stopwords if stopword in dictionary.token2id]
-        # dictionary.filter_tokens(ids_to_remove)
-        # # Filter words occuring only once (reasonable?).
-        # ids_to_remove = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
-        # dictionary.filter_tokens(ids_to_remove)
-        # # Remove gaps in sequence after removing stopwords.
-        # dictionary.compactify()
-        #
-        # # ---------------------
-        # # 6. Build and save corpus for LDA-based topic modeling.
-        # # ---------------------
-        # Corpus.generate_and_import_gensim_corpus(cursor=cursor,
-        #                                          tokenized_documents=tokenized_documents,
-        #                                          dictionary=dictionary,
-        #                                          corpus_feature_id=corpus_feature["id"])
+        cursor.execute("update topac.corpus_features "
+                       "set "
+                       "    feature_value_sequence = %s "
+                       "where id = %s",
+                       (feature_values, corpus_feature["id"]))
 
-        return 0
+        # ---------------------
+        # 3. Build dictionary.
+        # ---------------------
+        dictionary = gensim.corpora.Dictionary(tokenized_merged_documents)
+        # Filter stopwords out of dictionary.
+        ids_to_remove = [dictionary.token2id[stopword] for stopword in stopwords if stopword in dictionary.token2id]
+        dictionary.filter_tokens(ids_to_remove)
+        # Filter words occuring only once (reasonable?).
+        ids_to_remove = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
+        dictionary.filter_tokens(ids_to_remove)
+        # Remove gaps in sequence after removing stopwords.
+        dictionary.compactify()
+
+        # ---------------------
+        # 4. Build and save corpus for LDA-based topic modeling.
+        # ---------------------
+        Corpus.generate_and_import_gensim_corpus(cursor=cursor,
+                                                 tokenized_documents=tokenized_merged_documents,
+                                                 dictionary=dictionary,
+                                                 corpus_feature_id=corpus_feature["id"])
+
+        return dictionary
 
     @staticmethod
     def merge_tokenized_document_texts_by_feature_value(documents, corpus_feature):
@@ -361,7 +380,7 @@ class Corpus:
         #     -   add topic model creation by feature
         #     -   add doc2vec creation by feature
 
-        return merged_tokenized_document_texts_by_feature.values()
+        return merged_tokenized_document_texts_by_feature
 
     @staticmethod
     def import_terms(cursor, dictionary, corpus_id):

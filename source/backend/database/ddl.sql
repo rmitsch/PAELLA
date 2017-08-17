@@ -21,7 +21,7 @@ CREATE TABLE topac.corpus_features (
     corpora_id int  NOT NULL,
     gensim_dictionary bytea  NULL,
     gensim_corpus bytea  NULL,
-    gensim_value_sequence text[]  NULL,
+    feature_value_sequence text[]  NULL,
     comment text  NULL,
     CONSTRAINT c_u_corpus_features_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpus_features_pk PRIMARY KEY (id)
