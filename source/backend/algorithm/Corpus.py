@@ -32,7 +32,7 @@ class Corpus:
                                 Note that names have to coincide with column names containing those features.
         :param stopwords: List of stopwords to remove before generating models.
         """
-        logger = logging.getLogger("topac")
+        self.logger = logging.getLogger("topac")
 
         self.name = name
         self.corpus_type = corpus_type
@@ -49,11 +49,11 @@ class Corpus:
 
         # Check if corpus_type is supported.
         if corpus_type not in Corpus.supportedCorporaTypes:
-            logger.error("Corpus type not supported")
+            self.logger.error("Corpus type not supported")
 
-    def compile_corpus(self, path, db_connector):
+    def compile(self, path, db_connector):
         """
-        Imports specified corpus.
+        Preprocesses and mports specified corpus.
         :param path: Path to file/folder where corpus is located.
         :param db_connector:
         :return:
@@ -463,6 +463,8 @@ class Corpus:
         # ---------------------
 
         # Intermediate step: Save dictionary and corpus to temporary files.
+        # todo Some space might be saved by using gensim's binary save/load interface
+        # (http://radimrehurek.com/gensim/utils.html#gensim.utils.SaveLoad) for the corpus as well.
         dictionary.save("tmp_dict_file.dict")
         gensim.corpora.MmCorpus.serialize("tmp_corpus_file.mm", tfidf_corpus)
 
@@ -474,8 +476,8 @@ class Corpus:
                        "where "
                        "    id = %s",
                        (
-                           Binary(open("tmp_dict_file.dict", "rb").read()),
-                           Binary(open("tmp_corpus_file.mm", "rb").read()),
+                           open("tmp_dict_file.dict", "rb").read(),
+                           open("tmp_corpus_file.mm", "rb").read(),
                            corpus_feature_id
                        ))
 

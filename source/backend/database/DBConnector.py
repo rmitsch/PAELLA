@@ -5,6 +5,7 @@
 
 import psycopg2
 import sys
+import logging
 
 class DBConnector:
     """
@@ -20,12 +21,13 @@ class DBConnector:
         :param user:
         :param password:
         """
+        self.logger = logging.getLogger("topac")
+
         try:
             # Init DB connection.
             self.connection = psycopg2.connect(host=host, database=database, port=port, user=user, password=password)
-            print("connected")
         except:
-            print("unsuccessful")
+            self.logger.critical("Connection to database failed. Check parameters.")
 
     def constructDatabase(self):
         """
