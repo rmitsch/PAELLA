@@ -34,6 +34,8 @@ class Corpus:
         """
         self.logger = logging.getLogger("topac")
 
+        self.logger.info("Initializing Corpus object.")
+
         self.name = name
         self.corpus_type = corpus_type
         # Initialize document collection with empty dataframe.
@@ -58,6 +60,9 @@ class Corpus:
         :param db_connector:
         :return:
         """
+
+        self.logger.info("Compiling and importing corpus of type ", self.corpus_type, ".")
+
         if self.corpus_type == "nltk-reuters":
             self.import_nltk_reuters_corpus(db_connector)
         else:
@@ -247,6 +252,7 @@ class Corpus:
         :param corpus_features:
         :return:
         """
+
         # ---------------------
         # 1. Prepare cursor.
         # ---------------------
@@ -359,6 +365,7 @@ class Corpus:
         :param corpus_feature:
         :return: List of
         """
+
         merged_tokenized_document_texts_by_feature = {}
 
         # Iterate over all documents and group their tokenized_texts by feature value.
@@ -370,15 +377,6 @@ class Corpus:
                 merged_tokenized_document_texts_by_feature[feature_value].extend(document["tokenized_text"])
             else:
                 merged_tokenized_document_texts_by_feature[feature_value] = document["tokenized_text"]
-
-        # NEXT:
-        #     -   lda yields topic-to-doc distr. in the same order as it received documents in the dict.
-        #         meaning: we have to remember the sequence of feature values and their doc. -> stored in
-        #         topac.corpus_features.gensim_value_sequence. Use that retrieve documents by their values
-        #         and associate them with topic-in-doc-probabilities in the correct order
-        #     -   finish tm preprocessing by feature
-        #     -   add topic model creation by feature
-        #     -   add doc2vec creation by feature
 
         return merged_tokenized_document_texts_by_feature
 
@@ -485,26 +483,3 @@ class Corpus:
         os.remove("tmp_dict_file.dict")
         os.remove("tmp_corpus_file.mm")
         os.remove("tmp_corpus_file.mm.index")
-
-
-# Snippet for loading and executing LDA from data stored in DB
-# # test loading
-# cursor.execute("select"
-#                "    gensim_dictionary, gensim_corpus "
-#                "from topac.corpora "
-#                "where "
-#                "    id = %s",
-#                (corpus_id,))
-# res = cursor.fetchone()
-# open("tmp_dict_file.dict", "wb+").write(res[0])
-# open("tmp_corpus_file.mm", "wb+").write(res[1])
-# testdict = gensim.corpora.Dictionary.load("tmp_dict_file.dict")
-# testcorpus = gensim.corpora.MmCorpus("tmp_corpus_file.mm")
-#
-# # Train LDA model.
-# lda = gensim.models.LdaMulticore(corpus=testcorpus,
-#                                  workers=2,
-#                                  id2word=testdict,
-#                                  num_topics=10)
-# for topic in lda.show_topics():
-#     print(topic)

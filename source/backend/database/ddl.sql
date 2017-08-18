@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-16 17:16:13.595
+-- Last modification date: 2017-08-18 13:22:49.962
 
 create schema topac;
 
@@ -118,14 +118,14 @@ CREATE TABLE topac.terms_in_topics (
 CREATE TABLE topac.topic_models (
     id serial  NOT NULL,
     alpha real  NOT NULL,
-    beta real  NOT NULL,
+    eta real  NOT NULL,
     kappa real  NOT NULL,
     corpora_id int  NOT NULL,
     corpus_features_id int  NOT NULL,
     runtime int  NOT NULL,
     coordinates integer[]  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_topic_models_alpha_beta_kappa_corpora_id UNIQUE (alpha, beta, kappa, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_topic_models_alpha_eta_kappa_corpora_id UNIQUE (alpha, eta, kappa, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT c_u_topic_models_corpora_id_corpus_features_id UNIQUE (corpora_id, corpus_features_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT topic_models_pk PRIMARY KEY (id)
 );

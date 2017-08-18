@@ -42,6 +42,7 @@ corpus_title = "nltk-reuters"
 # Create new topic model. Omit hyperparameters for now.
 topic_model = TopicModel(db_connector=db_connector,
                          corpus_title=corpus_title,
-                         corpus_feature_title="document_id")
+                         corpus_feature_title="document_id",
+                         n_iterations=10)
 # Calculate/compile topic model.
 topic_model.compile()
