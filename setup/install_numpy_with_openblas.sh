@@ -14,7 +14,7 @@ update-ca-certificates
 apk add openssl=1.0.2k-r0
 
 # 2. Install openblas.
-# export NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
+export NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
 apk --no-cache add --virtual build-deps \
     musl-dev \
     linux-headers \
