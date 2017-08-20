@@ -13,9 +13,12 @@ RUN apk update && \
 	# Install various drivers necessary on alpine for some of the python dependencies.
 	apk add postgresql-dev=9.6.4-r0 && \
 	apk add zlib-dev=1.2.11-r0 && \
-	# Install python dependencies.
-	pip install -r /tmp/requirements.txt && \
-	# Allow execution of setup script.
+	apk add python-dev=2.7.12-r0
+# For testing purposes: split up layers to leverage caching for shorter build times.
+RUN	# Install python dependencies.
+	pip install -r /tmp/requirements.txt
+# For testing purposes: split up layers to leverage caching for shorter build 
+RUN	# Allow execution of setup script.
 	chmod +x /tmp/setup.sh && \
 	# Run manual setup.
 	RUN ./tmp/setup.sh
