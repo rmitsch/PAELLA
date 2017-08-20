@@ -12,13 +12,12 @@ COPY setup/setup.sh /tmp/setup.sh
 ENV NUMPY_VERSION="1.13.1" \ 
 	OPENBLAS_VERSION="0.2.18" 
 
-
 # Allow execution of setup scripts.
 RUN chmod +x /tmp/install_numpy_with_openblas.sh && \
 	chmod +x /tmp/setup.sh
 
 # Run setup scripts.
-RUN ./tmp/install_numpy_with_openblas.sh
+#RUN ./tmp/install_numpy_with_openblas.sh
 
 # Install custom TOPAC dependencies.
 RUN apk update && \
@@ -40,4 +39,4 @@ RUN ./tmp/setup.sh && \
 EXPOSE 5000
 
 # run the command
-CMD ["python", "./source/app.py"]
+#CMD ["python", "./source/app.py"]
