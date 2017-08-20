@@ -42,14 +42,11 @@ RUN apk update && \
 	apk add zlib-dev=1.2.11-r0 && \
 	apk add libxml2=2.9.4-r3 && \
 	apk add libxml2-dev=2.9.4-r3 && \
-	apk add libxslt-dev=1.1.29-r1
+	apk add libxslt-dev=1.1.29-r1 && \
 	# Install python dependencies.
-
-
-RUN	pip install -r /tmp/requirements.txt
-
+	pip install -r /tmp/requirements.txt && \
 	# Execute additional setup and clean up build environment.
-RUN	./tmp/setup.sh && \
+	./tmp/setup.sh && \
 	# Remove build dependencies.
 	# To test: Does using numpy (gensim, ...) require build files?
 	apk --no-cache del --purge build-deps
