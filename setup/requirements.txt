@@ -1,0 +1,8 @@
+scipy==0.19.1
+Flask==0.12.2
+gensim==2.3.0
+nltk==3.2.4
+pandas==0.20.3
+pattern3==3.0.0
+psycopg2==2.7.3
+six==1.10.0

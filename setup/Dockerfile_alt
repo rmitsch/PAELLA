@@ -1,0 +1,40 @@
+# Source: https://github.com/prakhar1989/docker-curriculum
+
+# Instructions copied from - https://hub.docker.com/_/python/
+FROM python:3.5-alpine
+
+ENV NUMPY_VERSION="1.13.1"
+
+# https://github.com/python-pillow/Pillow/issues/1763 
+ENV LIBRARY_PATH=/lib:/usr/lib 
+ENV BASEDIR=/opt/hr 
+ENV VIRTUALENV=/opt/virtualenv_hr # Install Development libraries needed for our system 
+
+RUN apk update && \
+	apk add git libjpeg-turbo-dev linux-headers musl-dev gcc curl-dev zeromq-dev gpgme-dev attr-dev
+RUN apk add openblas openblas-dev --update-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ && \
+	pip install cython setuptools nose
+
+RUN mkdir /build && \
+	cd /build && \
+	apk add ca-certificates && \
+	update-ca-certificates && \
+	apk add openssl && \
+	wget https://github.com/numpy/numpy/archive/v$NUMPY_VERSION.tar.gz && \
+	tar xvfz v$NUMPY_VERSION.tar.gz 
+ADD numpy-$NUMPY_VERSION-musl.patch /tmp
+
+RUN	cd /build/numpy-$NUMPY_VERSION && \
+	patch -p1 < /tmp/numpy-$NUMPY_VERSION-musl.patch
+RUN	export NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) && \
+	cd /build/numpy-$NUMPY_VERSION && \
+	export ATLAS=None && \
+	export LDFLAGS="$LDFLAGS -shared" && \
+	python setup.py build -j ${NPROC} config_fc --fcompiler=gnu95 
+
+RUN cd /build/numpy-$NUMPY_VERSION && \
+	export ATLAS=None && \ 
+	export LDFLAGS="$LDFLAGS -shared" && \ 
+	python setup.py install config_fc --fcompiler=gnu95 
+
+RUN rm -fr /tmp/* /var/cache/apk/*
