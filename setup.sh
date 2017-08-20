@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ## Manual setup steps. ##
 
 # Download NLTK's default stopwords us.
