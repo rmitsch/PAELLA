@@ -46,13 +46,13 @@ RUN apk update && \
 	# Install python dependencies.
 
 
-RUN	pip install -r /tmp/requirements.txt
+#RUN	pip install -r /tmp/requirements.txt
 
 	# Execute additional setup and clean up build environment.
-RUN	./tmp/setup.sh && \
+#RUN	./tmp/setup.sh && \
 	# Remove build dependencies.
 	# To test: Does using numpy (gensim, ...) require build files?
-	apk --no-cache del --purge build-deps
+#	apk --no-cache del --purge build-deps
 
 ##########################################
 # 5. Launch server.
