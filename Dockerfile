@@ -21,7 +21,7 @@ RUN	# Install python dependencies.
 RUN	# Allow execution of setup script.
 	chmod +x /tmp/setup.sh && \
 	# Run manual setup.
-	RUN ./tmp/setup.sh
+	./tmp/setup.sh
 
 
 
