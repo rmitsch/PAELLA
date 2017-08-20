@@ -24,7 +24,8 @@ RUN ./tmp/install_numpy_with_openblas.sh
 RUN apk update && \
 	# Install various drivers necessary on alpine for some of the python dependencies.
 	apk add postgresql-dev=9.6.4-r0 && \
-	apk add zlib-dev=1.2.11-r0
+	apk add zlib-dev=1.2.11-r0 && \
+	apk add libxml2-dev=2.9.4-r3
 
 # Install python dependencies.
 RUN	pip install -r /tmp/requirements.txt
