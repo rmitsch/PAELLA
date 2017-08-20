@@ -12,7 +12,6 @@ COPY setup.sh /tmp/setup.sh
 RUN apk update && \
 	# Install various drivers necessary on alpine for some of the python dependencies.
 	apk add postgresql-dev=9.6.4-r0 && \
-	apk add libxslt-dev=1.1.29-r1 && \
 	apk add zlib-dev=1.2.11-r0 && \
 	# Install python dependencies.
 	pip install -r /tmp/requirements.txt && \
