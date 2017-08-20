@@ -1,4 +1,5 @@
 # TOPAC: Topic Prism Analytics Core
+[![Build Status](https://travis-ci.org/rmitsch/topac.png)](https://travis-ci.org/rmitsch/topac)
 
 ### Frontend
 Plotting and crossfiltering.
