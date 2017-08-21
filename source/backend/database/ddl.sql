@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-18 13:22:49.962
+-- Last modification date: 2017-08-21 16:18:51.405
 
 create schema topac;
 
@@ -11,6 +11,25 @@ CREATE TABLE topac.corpora (
     comment text  NULL,
     CONSTRAINT c_u_corpora_title UNIQUE (title) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpora_pk PRIMARY KEY (id)
+);
+
+-- Table: corpus_facets
+CREATE TABLE topac.corpus_facets (
+    id serial  NOT NULL,
+    corpus_features_id int  NOT NULL,
+    corpus_feature_value text  NOT NULL,
+    summarized_text text  NOT NULL,
+    comment text  NULL,
+    CONSTRAINT c_u_facets_cf_id_cfv_id UNIQUE (corpus_features_id, corpus_feature_value) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT corpus_facets_pk PRIMARY KEY (id)
+);
+
+-- Table: corpus_facets_in_doc2vec_models
+CREATE TABLE corpus_facets_in_doc2vec_models (
+    corpus_facets_id int  NOT NULL,
+    doc2vec_models_id int  NOT NULL,
+    coordinates int[]  NOT NULL,
+    CONSTRAINT corpus_facets_in_doc2vec_models_pk PRIMARY KEY (corpus_facets_id,doc2vec_models_id)
 );
 
 -- Table: corpus_features
@@ -35,14 +54,6 @@ CREATE TABLE topac.corpus_features_in_documents (
     value text  NOT NULL,
     CONSTRAINT c_u_cfid_ocuments_cf_id_d_id UNIQUE (corpus_features_id, documents_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpus_features_in_documents_pk PRIMARY KEY (id)
-);
-
--- Table: corpus_features_in_documents_in_doc2vec_models
-CREATE TABLE topac.corpus_features_in_documents_in_doc2vec_models (
-    doc2vec_models_id int  NOT NULL,
-    corpus_features_in_documents_id int  NOT NULL,
-    coordinates int[]  NOT NULL,
-    CONSTRAINT corpus_features_in_documents_in_doc2vec_models_pk PRIMARY KEY (doc2vec_models_id,corpus_features_in_documents_id)
 );
 
 -- Table: doc2vec_models
@@ -120,6 +131,7 @@ CREATE TABLE topac.topic_models (
     alpha real  NOT NULL,
     eta real  NOT NULL,
     kappa real  NOT NULL,
+    n_iterations int  NOT NULL,
     corpora_id int  NOT NULL,
     corpus_features_id int  NOT NULL,
     runtime int  NOT NULL,
@@ -152,10 +164,26 @@ CREATE TABLE topac.topics (
 );
 
 -- foreign keys
--- Reference: cfid_in_doc2vec_models_corpus_features_in_documents (table: corpus_features_in_documents_in_doc2vec_models)
-ALTER TABLE topac.corpus_features_in_documents_in_doc2vec_models ADD CONSTRAINT cfid_in_doc2vec_models_corpus_features_in_documents
-    FOREIGN KEY (corpus_features_in_documents_id)
-    REFERENCES topac.corpus_features_in_documents (id)  
+-- Reference: corpus_facets_in_doc2vec_models_corpus_facets (table: corpus_facets_in_doc2vec_models)
+ALTER TABLE corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2vec_models_corpus_facets
+    FOREIGN KEY (corpus_facets_id)
+    REFERENCES topac.corpus_facets (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: corpus_facets_in_doc2vec_models_doc2vec_models (table: corpus_facets_in_doc2vec_models)
+ALTER TABLE corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2vec_models_doc2vec_models
+    FOREIGN KEY (doc2vec_models_id)
+    REFERENCES topac.doc2vec_models (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: corpus_feature_value_groupings_metadata_corpus_features (table: corpus_facets)
+ALTER TABLE topac.corpus_facets ADD CONSTRAINT corpus_feature_value_groupings_metadata_corpus_features
+    FOREIGN KEY (corpus_features_id)
+    REFERENCES topac.corpus_features (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
@@ -180,14 +208,6 @@ ALTER TABLE topac.corpus_features_in_documents ADD CONSTRAINT corpus_features_in
 ALTER TABLE topac.corpus_features_in_documents ADD CONSTRAINT corpus_features_in_documents_documents
     FOREIGN KEY (documents_id)
     REFERENCES topac.documents (id)  
-    NOT DEFERRABLE 
-    INITIALLY IMMEDIATE
-;
-
--- Reference: corpus_features_in_documents_in_doc2vec_models_doc2vec_models (table: corpus_features_in_documents_in_doc2vec_models)
-ALTER TABLE topac.corpus_features_in_documents_in_doc2vec_models ADD CONSTRAINT corpus_features_in_documents_in_doc2vec_models_doc2vec_models
-    FOREIGN KEY (doc2vec_models_id)
-    REFERENCES topac.doc2vec_models (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
