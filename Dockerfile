@@ -1,4 +1,4 @@
-FROM python:3.5-alpine
+FROM rmitsch/alpine-python-openblas-numpy
 
 ##########################################
 # 1. Copy relevant files into container.
@@ -6,34 +6,16 @@ FROM python:3.5-alpine
 
 # Copy file with python requirements into container.
 COPY setup/requirements.txt /tmp/requirements.txt
-# Copy file containing commands for installing numpy versus openblas.
-COPY setup/install_numpy_with_openblas.sh /tmp/install_numpy_with_openblas.sh
 # Copy setup file.
 COPY setup/setup.sh /tmp/setup.sh
 # Copy source code.
 COPY source /source
 
-##########################################
-# 2. Prepare repos and env. variables.
-##########################################
-
-# Set versions of numpy and openblas to be installed.
-ENV NUMPY_VERSION="1.13.1" \ 
-	OPENBLAS_VERSION="0.2.18" 
-
 # Allow execution of setup scripts.
-RUN chmod +x /tmp/install_numpy_with_openblas.sh && \
-	chmod +x /tmp/setup.sh
+RUN chmod +x /tmp/setup.sh
 
 ##########################################
-# 3. Install numpy with openblas.
-##########################################
-
-# Run setup scripts.
-RUN ./tmp/install_numpy_with_openblas.sh
-
-##########################################
-# 4. Install custom TOPAC dependencies.
+# 2. Install dependencies.
 ##########################################
 
 RUN apk update && \
@@ -52,7 +34,7 @@ RUN apk update && \
 	apk --no-cache del --purge build-deps
 
 ##########################################
-# 5. Launch server.
+# 3. Launch server.
 ##########################################
 
 # Declare which port(s) should be exposed.
