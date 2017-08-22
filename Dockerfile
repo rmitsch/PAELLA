@@ -1,4 +1,4 @@
-FROM rmitsch/alpine-python-openblas-numpy
+FROM rmitsch/alpine-python-gensim
 
 ##########################################
 # 1. Copy relevant files into container.

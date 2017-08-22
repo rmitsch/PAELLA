@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-21 16:18:51.405
+-- Last modification date: 2017-08-22 11:17:31.087
 
 create schema topac;
 
@@ -25,7 +25,7 @@ CREATE TABLE topac.corpus_facets (
 );
 
 -- Table: corpus_facets_in_doc2vec_models
-CREATE TABLE corpus_facets_in_doc2vec_models (
+CREATE TABLE topac.corpus_facets_in_doc2vec_models (
     corpus_facets_id int  NOT NULL,
     doc2vec_models_id int  NOT NULL,
     coordinates int[]  NOT NULL,
@@ -165,7 +165,7 @@ CREATE TABLE topac.topics (
 
 -- foreign keys
 -- Reference: corpus_facets_in_doc2vec_models_corpus_facets (table: corpus_facets_in_doc2vec_models)
-ALTER TABLE corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2vec_models_corpus_facets
+ALTER TABLE topac.corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2vec_models_corpus_facets
     FOREIGN KEY (corpus_facets_id)
     REFERENCES topac.corpus_facets (id)  
     NOT DEFERRABLE 
@@ -173,7 +173,7 @@ ALTER TABLE corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2
 ;
 
 -- Reference: corpus_facets_in_doc2vec_models_doc2vec_models (table: corpus_facets_in_doc2vec_models)
-ALTER TABLE corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2vec_models_doc2vec_models
+ALTER TABLE topac.corpus_facets_in_doc2vec_models ADD CONSTRAINT corpus_facets_in_doc2vec_models_doc2vec_models
     FOREIGN KEY (doc2vec_models_id)
     REFERENCES topac.doc2vec_models (id)  
     NOT DEFERRABLE 

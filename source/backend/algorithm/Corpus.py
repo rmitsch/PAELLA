@@ -61,7 +61,7 @@ class Corpus:
         :return:
         """
 
-        self.logger.info("Compiling and importing corpus of type ", self.corpus_type, ".")
+        self.logger.info("Compiling and importing corpus of type " + self.corpus_type)
 
         if self.corpus_type == "nltk-reuters":
             self.import_nltk_reuters_corpus(db_connector)
@@ -96,6 +96,7 @@ class Corpus:
         # Define and import stopwords.
         self.generate_and_import_stopwords(cursor, corpus_id)
 
+        # Preprocess and persist documents.
         for fileID in nltk.corpus.reuters.fileids():
             # Fetch document.
             doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip()
@@ -143,6 +144,7 @@ class Corpus:
         :param corpus_name:
         :return: ID of new corpus.
         """
+
         cursor.execute("insert into "
                        "    topac.corpora ("
                        "    title"
@@ -264,9 +266,11 @@ class Corpus:
         # Note: Assuming performance isn't critical for document import.
         for doc in documents:
             # Make everything lowercase and exclude special signs: All ; & > < = numbers : , . ' "
-            doc["text"] = re.sub(r"([;]|[(]|[)]|[/]|[\\]|[$]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|[-]|(\d+)|[']|[\"])", "", doc["raw_text"].lower())
+            doc["text"] = re.sub(r"([;]|[(]|[)]|[/]|[\\]|[$]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|[-]|(\d+)|[']|[\"])", "",
+                                 doc["raw_text"].lower())
             # Tokenize text.
-            doc["tokenized_text"] = [pattern_vector.stem(word, stemmer=pattern_vector.LEMMA) for word in doc["text"].split()]
+            doc["tokenized_text"] = [pattern_vector.stem(word, stemmer=pattern_vector.LEMMA)
+                                     for word in doc["text"].split()]
             # Remove stopwords from text.
             doc["text"] = ' '.join(filter(lambda x: x not in self.stopwords, doc["tokenized_text"]))
 
@@ -314,10 +318,11 @@ class Corpus:
         # ---------------------
         # 1. Concatenate documents with same value for current corpus_feature to one document.
         # ---------------------
-        tokenized_merged_documents_dict = Corpus.merge_tokenized_document_texts_by_feature_value(
-            documents=documents,
-            corpus_feature=corpus_feature
-        )
+        tokenized_merged_documents_dict, raw_merged_documents_dict = \
+            Corpus.merge_tokenized_document_texts_by_feature_value(
+                documents=documents,
+                corpus_feature=corpus_feature
+            )
 
         # Note that feature values and merged documents are sorted in the same order -
         # hence it's possible later on to use the sequence of feature values to determine
@@ -335,7 +340,24 @@ class Corpus:
                        (feature_values, corpus_feature["id"]))
 
         # ---------------------
-        # 3. Build dictionary.
+        # 3. Store corpus facets.
+        # ---------------------
+
+        for feature_value, raw_merged_document in raw_merged_documents_dict.items():
+            # Insert facet.
+            cursor.execute("insert into "
+                           "    topac.corpus_facets "
+                           "values( "
+                           "    corpus_features_id, "
+                           "    corpus_features_value, "
+                           "    summarized_text"
+                           ") "
+                           "(%s, %s, %s)",
+                           (corpus_feature["id"], feature_value, "empty"))
+
+
+        # ---------------------
+        # 4. Build dictionary.
         # ---------------------
         dictionary = gensim.corpora.Dictionary(tokenized_merged_documents)
         # Filter stopwords out of dictionary.
@@ -348,7 +370,7 @@ class Corpus:
         dictionary.compactify()
 
         # ---------------------
-        # 4. Build and save corpus for LDA-based topic modeling.
+        # 5. Build and save corpus for LDA-based topic modeling.
         # ---------------------
         Corpus.generate_and_import_gensim_corpus(cursor=cursor,
                                                  tokenized_documents=tokenized_merged_documents,
@@ -363,10 +385,11 @@ class Corpus:
         Merges tokenized document texts by their documents' values for the specified feature.
         :param documents:
         :param corpus_feature:
-        :return: List of
+        :return: Lists of merged (1) tokenized document texts and (2) raw document texts.
         """
 
         merged_tokenized_document_texts_by_feature = {}
+        merged_raw_document_texts_by_feature = {}
 
         # Iterate over all documents and group their tokenized_texts by feature value.
         for document in documents:
@@ -375,10 +398,12 @@ class Corpus:
             # Group documents by feature value.
             if feature_value in merged_tokenized_document_texts_by_feature:
                 merged_tokenized_document_texts_by_feature[feature_value].extend(document["tokenized_text"])
+                merged_raw_document_texts_by_feature[feature_value].extend(document["raw_text"])
             else:
                 merged_tokenized_document_texts_by_feature[feature_value] = document["tokenized_text"]
+                merged_raw_document_texts_by_feature[feature_value] = document["raw_text"]
 
-        return merged_tokenized_document_texts_by_feature
+        return merged_tokenized_document_texts_by_feature, merged_raw_document_texts_by_feature
 
     @staticmethod
     def import_terms(cursor, dictionary, corpus_id):
