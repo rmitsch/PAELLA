@@ -6,6 +6,7 @@
 import backend.database.DBConnector as DBConnector
 import backend.utils.Utils as Utils
 import backend.algorithm.Corpus as Corpus
+import logging
 import backend.algorithm.TopicModel as TopicModel
 
 
@@ -13,6 +14,8 @@ import backend.algorithm.TopicModel as TopicModel
 
 # Create logger.
 Utils.create_logger()
+logger = logging.getLogger("topac")
+logger.info("Starting test.py.")
 
 # Create database connection.
 db_connector = DBConnector(host="localhost",
@@ -46,3 +49,5 @@ nltk_reuters_corpus.compile("", db_connector)
 #                          n_iterations=10)
 # # Calculate/compile topic model.
 # topic_model.compile()
+
+logger.info("Finished test.py.")

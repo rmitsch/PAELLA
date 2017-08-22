@@ -10,7 +10,7 @@ import logging
 import re
 import gensim
 from backend.algorithm.IterableGensimDoc2BowCorpus import IterableGensimDoc2BowCorpus
-from psycopg2 import Binary
+from gensim.summarization import summarize
 
 
 class Corpus:
@@ -22,7 +22,7 @@ class Corpus:
     # Should ultimately boil down to one single, standardized CSV template.
     supportedCorporaTypes = ['nltk-reuters']
 
-    def __init__(self, name, corpus_type, corpus_features, stopwords):
+    def __init__(self, name, corpus_type, corpus_features, stopwords, summarization_word_count=50):
         """
         Init instance of Corpus.
         :param name:
@@ -31,6 +31,7 @@ class Corpus:
                                 A unique ID is inferred automatically from DB IDs and doesn't have to be specified.
                                 Note that names have to coincide with column names containing those features.
         :param stopwords: List of stopwords to remove before generating models.
+        :param summarization_word_count: Number of words to use for summarization of document in this corpus.
         """
         self.logger = logging.getLogger("topac")
 
@@ -41,6 +42,7 @@ class Corpus:
         # Initialize document collection with empty dataframe.
         self.documents = {}
         self.stopwords = stopwords
+        self.summarization_word_count = summarization_word_count
         # Create list of corpus_features.
         self.corpus_features = {
             "document_id": {"name": "document_id", "type": "int"}
@@ -287,10 +289,10 @@ class Corpus:
         # 3. For topic models: Preprocess corpus and store relevant information for each corpus feature.
         # ---------------------
         for corpus_feature_name, corpus_feature in corpus_features.items():
-            dictionary = Corpus.preprocess_corpus_feature(cursor=cursor,
-                                                          documents=documents,
-                                                          corpus_feature=corpus_feature,
-                                                          stopwords=self.stopwords)
+            dictionary = self.preprocess_corpus_feature(cursor=cursor,
+                                                        documents=documents,
+                                                        corpus_feature=corpus_feature,
+                                                        stopwords=self.stopwords)
 
             # If current feature (and dictionary) is document ID: Store terms and term-corpus associations
             # in database.
@@ -304,8 +306,7 @@ class Corpus:
         # ---------------------
         db_connector.connection.commit()
 
-    @staticmethod
-    def preprocess_corpus_feature(cursor, documents, corpus_feature, stopwords):
+    def preprocess_corpus_feature(self, cursor, documents, corpus_feature, stopwords):
         """
         Preprocess and refine raw texts for selected corpus feature.
         :param cursor:
@@ -346,15 +347,15 @@ class Corpus:
         for feature_value, raw_merged_document in raw_merged_documents_dict.items():
             # Insert facet.
             cursor.execute("insert into "
-                           "    topac.corpus_facets "
-                           "values( "
+                           "    topac.corpus_facets ("
                            "    corpus_features_id, "
-                           "    corpus_features_value, "
+                           "    corpus_feature_value, "
                            "    summarized_text"
                            ") "
-                           "(%s, %s, %s)",
-                           (corpus_feature["id"], feature_value, "empty"))
-
+                           "values (%s, %s, %s)",
+                           (corpus_feature["id"], feature_value,
+                            gensim.summarization.summarize(raw_merged_document, self.summarization_word_count)
+                            ))
 
         # ---------------------
         # 4. Build dictionary.
@@ -398,7 +399,7 @@ class Corpus:
             # Group documents by feature value.
             if feature_value in merged_tokenized_document_texts_by_feature:
                 merged_tokenized_document_texts_by_feature[feature_value].extend(document["tokenized_text"])
-                merged_raw_document_texts_by_feature[feature_value].extend(document["raw_text"])
+                merged_raw_document_texts_by_feature[feature_value] += " " + document["raw_text"]
             else:
                 merged_tokenized_document_texts_by_feature[feature_value] = document["tokenized_text"]
                 merged_raw_document_texts_by_feature[feature_value] = document["raw_text"]
