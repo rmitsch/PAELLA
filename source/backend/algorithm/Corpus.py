@@ -10,7 +10,10 @@ import logging
 import re
 import gensim
 from backend.algorithm.IterableGensimDoc2BowCorpus import IterableGensimDoc2BowCorpus
-from gensim.summarization import summarize
+from sumy.summarizers.text_rank import TextRankSummarizer as Sumy_TextRankSummarizer
+from sumy.nlp.stemmers import Stemmer as Sumy_Stemmer
+from sumy.parsers.plaintext import PlaintextParser as Sumy_PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer as Sumy_Tokenizer
 
 
 class Corpus:
@@ -343,8 +346,16 @@ class Corpus:
         # ---------------------
         # 3. Store corpus facets.
         # ---------------------
+        # Prepare sumy summarizer.
+        # summarizer = Sumy_TextRankSummarizer(Sumy_Stemmer("english"))
+        # summarizer.stop_words = self.stopwords
 
         for feature_value, raw_merged_document in raw_merged_documents_dict.items():
+            # parser = Sumy_PlaintextParser.from_string(raw_merged_document, Sumy_Tokenizer("english"))
+            # blub = []
+            # for sentence in summarizer(parser.document, 10):
+            #    blub.append(sentence)
+
             # Insert facet.
             cursor.execute("insert into "
                            "    topac.corpus_facets ("
@@ -353,8 +364,11 @@ class Corpus:
                            "    summarized_text"
                            ") "
                            "values (%s, %s, %s)",
-                           (corpus_feature["id"], feature_value,
-                            gensim.summarization.summarize(raw_merged_document, self.summarization_word_count)
+                           (corpus_feature["id"],
+                            feature_value,
+                            # todo Which summarizer to use? Runtime not critical, but relevant.
+                            ""
+                            # gensim.summarization.summarize(raw_merged_document, self.summarization_word_count)
                             ))
 
         # ---------------------
