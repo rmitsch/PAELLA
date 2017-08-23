@@ -14,6 +14,7 @@ from sumy.summarizers.text_rank import TextRankSummarizer as Sumy_TextRankSummar
 from sumy.nlp.stemmers import Stemmer as Sumy_Stemmer
 from sumy.parsers.plaintext import PlaintextParser as Sumy_PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer as Sumy_Tokenizer
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 
 class Corpus:
@@ -83,6 +84,9 @@ class Corpus:
         # Prepare cursor.
         cursor = db_connector.connection.cursor()
 
+        # Preprare VADER's sentiment analyzer.
+        sentiment_analyzer = SentimentIntensityAnalyzer()
+
         # Prepare list of documents. Used for preprocessing.
         documents = []
 
@@ -107,7 +111,11 @@ class Corpus:
             doc = nltk.corpus.reuters.raw(fileids=[fileID]).strip()
 
             # Import document in DB.
-            document_id = Corpus.import_document(cursor=cursor, corpus_id=corpus_id, title=fileID, raw_text=doc)
+            document_id = Corpus.import_document(cursor=cursor,
+                                                 corpus_id=corpus_id,
+                                                 title=fileID,
+                                                 raw_text=doc,
+                                                 sentiment_analyzer=sentiment_analyzer)
 
             # Import document feature values.
             # Contextual document ID / title.
@@ -183,13 +191,14 @@ class Corpus:
         return cursor.fetchone()[0]
 
     @staticmethod
-    def import_document(cursor, corpus_id, title, raw_text):
+    def import_document(cursor, corpus_id, title, raw_text, sentiment_analyzer):
         """
         Adds entry in topac.documents.
         :param cursor:
         :param corpus_id:
         :param title:
         :param raw_text:
+        :param sentiment_analyzer: VADER's sentiment analyzer.
         :return: ID of newly added document.
         """
 
@@ -197,11 +206,15 @@ class Corpus:
                        "topac.documents ("
                        "    title, "
                        "    raw_text, "
-                       "    corpora_id"
+                       "    corpora_id, "
+                       "    sentiment_score "
                        ")"
-                       "values (%s, %s, %s) "
+                       "values (%s, %s, %s, %s) "
                        "returning id",
-                       (title, raw_text, corpus_id))
+                       (title,
+                        raw_text,
+                        corpus_id,
+                        sentiment_analyzer.polarity_scores(raw_text)["compound"]))
 
         return cursor.fetchone()[0]
 

@@ -186,6 +186,9 @@ class TopicModel:
 
         self.logger.info("Importing topic model.")
 
+        # 0. Load topics.
+        topics = topic_model.show_topic()
+
         # 1. Import topic model entry.
         cursor.execute("insert into "
                        "    topac.topic_models (alpha, "

@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-22 11:17:31.087
+-- Last modification date: 2017-08-23 10:24:28.25
 
 create schema topac;
 
@@ -76,6 +76,7 @@ CREATE TABLE topac.documents (
     raw_text text  NOT NULL,
     refined_text text  NULL,
     coordinates integer[]  NULL,
+    sentiment_score real  NOT NULL,
     corpora_id int  NOT NULL,
     comment int  NULL,
     CONSTRAINT c_u_documents_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
