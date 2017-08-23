@@ -29,7 +29,7 @@ class DBConnector:
         except:
             self.logger.critical("Connection to database failed. Check parameters.")
 
-    def constructDatabase(self):
+    def construct_database(self):
         """
         Execute DDL.
         :return:
@@ -45,3 +45,32 @@ class DBConnector:
             self.connection.commit()
         except:
             print(sys.exc_info()[1])
+
+    def load_terms_in_corpus(self, corpus_id):
+        """
+        Loads all terms in corpus and returns it as map.
+        :param corpus_id:
+        :return: Map in the form of "word: {terms_ID, terms_in_corpora_ID}"
+        """
+
+        cursor = self.connection.cursor()
+
+        cursor.execute("select "
+                       "    t.term, "
+                       "    t.id, "
+                       "    tic.id "
+                       "from "
+                       "    topac.terms t "
+                       "inner join topac.terms_in_corpora tic on"
+                       "    tic.terms_id    = t.id and "
+                       "    tic.corpora_id  = %s",
+                       (corpus_id,))
+
+        # Transform result in map.
+        term_dict = {}
+        for row in cursor.fetchall():
+            term_dict[row[0]] = {}
+            term_dict[row[0]]["terms_id"] = row[1]
+            term_dict[row[0]]["terms_in_corpora_id"] = row[2]
+
+        return term_dict

@@ -42,26 +42,26 @@ db_connector = DBConnector(host="localhost",
 corpus_title = "nltk-reuters"
 
 # Create database.
-db_connector.constructDatabase()
+# db_connector.construct_database()
 
-# Import nltk-reuters corpus.
-stopwords = []
-# Define which corpus-features should be used.
-corpus_features = [
-    {"name": "categories", "type": "text"}
-]
-nltk_reuters_corpus = Corpus(name=corpus_title,
-                             corpus_type="nltk-reuters",
-                             stopwords=stopwords,
-                             corpus_features=corpus_features)
-nltk_reuters_corpus.compile("", db_connector)
+# # Import nltk-reuters corpus.
+# stopwords = []
+# # Define which corpus-features should be used.
+# corpus_features = [
+#     {"name": "categories", "type": "text"}
+# ]
+# nltk_reuters_corpus = Corpus(name=corpus_title,
+#                              corpus_type="nltk-reuters",
+#                              stopwords=stopwords,
+#                              corpus_features=corpus_features)
+# nltk_reuters_corpus.compile("", db_connector)
 
 # Create new topic model. Omit hyperparameters for now.
-# topic_model = TopicModel(db_connector=db_connector,
-#                          corpus_title=corpus_title,
-#                          corpus_feature_title="document_id",
-#                          n_iterations=10)
-# # Calculate/compile topic model.
-# topic_model.compile()
+topic_model = TopicModel(db_connector=db_connector,
+                         corpus_title=corpus_title,
+                         corpus_feature_title="document_id",
+                         n_iterations=10)
+# Calculate/compile topic model.
+topic_model.compile()
 
 logger.info("Finished test.py.")

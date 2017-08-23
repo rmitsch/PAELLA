@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-23 10:24:28.25
+-- Last modification date: 2017-08-23 15:11:58.961
 
 create schema topac;
 
@@ -19,6 +19,7 @@ CREATE TABLE topac.corpus_facets (
     corpus_features_id int  NOT NULL,
     corpus_feature_value text  NOT NULL,
     summarized_text text  NOT NULL,
+    sequence_number int  NOT NULL,
     comment text  NULL,
     CONSTRAINT c_u_facets_cf_id_cfv_id UNIQUE (corpus_features_id, corpus_feature_value) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpus_facets_pk PRIMARY KEY (id)
@@ -32,6 +33,14 @@ CREATE TABLE topac.corpus_facets_in_doc2vec_models (
     CONSTRAINT corpus_facets_in_doc2vec_models_pk PRIMARY KEY (corpus_facets_id,doc2vec_models_id)
 );
 
+-- Table: corpus_facets_in_topics
+CREATE TABLE topac.corpus_facets_in_topics (
+    topics_id int  NOT NULL,
+    corpus_facets_id int  NOT NULL,
+    probability real  NOT NULL CHECK (probability > 0),
+    CONSTRAINT corpus_facets_in_topics_pk PRIMARY KEY (topics_id,corpus_facets_id)
+);
+
 -- Table: corpus_features
 CREATE TABLE topac.corpus_features (
     id serial  NOT NULL,
@@ -40,7 +49,6 @@ CREATE TABLE topac.corpus_features (
     corpora_id int  NOT NULL,
     gensim_dictionary bytea  NULL,
     gensim_corpus bytea  NULL,
-    feature_value_sequence text[]  NULL,
     comment text  NULL,
     CONSTRAINT c_u_corpus_features_title_corpora_id UNIQUE (title, corpora_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT corpus_features_pk PRIMARY KEY (id)
@@ -143,24 +151,16 @@ CREATE TABLE topac.topic_models (
     CONSTRAINT topic_models_pk PRIMARY KEY (id)
 );
 
--- Table: topic_probabilities_in_documents
-CREATE TABLE topac.topic_probabilities_in_documents (
-    documents_id int  NOT NULL,
-    topics_id int  NOT NULL,
-    probability real  NOT NULL CHECK (probability > 0),
-    CONSTRAINT topic_probabilities_in_documents_pk PRIMARY KEY (documents_id,topics_id)
-);
-
 -- Table: topics
 CREATE TABLE topac.topics (
     id serial  NOT NULL,
-    topic_number int  NOT NULL,
+    sequence_number int  NOT NULL,
     title text  NOT NULL,
     topic_models_id int  NOT NULL,
     quality int  NOT NULL,
     coordinates integer[]  NOT NULL,
     comment text  NULL,
-    CONSTRAINT c_u_topics_topic_number_document_feature_topic_models_id UNIQUE (topic_models_id, topic_number) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT c_u_topics_topic_number_document_feature_topic_models_id UNIQUE (topic_models_id, sequence_number) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT topics_pk PRIMARY KEY (id)
 );
 
@@ -301,16 +301,16 @@ ALTER TABLE topac.topic_models ADD CONSTRAINT topic_models_corpus_features
     INITIALLY IMMEDIATE
 ;
 
--- Reference: topics_in_documents_documents (table: topic_probabilities_in_documents)
-ALTER TABLE topac.topic_probabilities_in_documents ADD CONSTRAINT topics_in_documents_documents
-    FOREIGN KEY (documents_id)
-    REFERENCES topac.documents (id)  
+-- Reference: topic_probabilities_in_documents_corpus_facets (table: corpus_facets_in_topics)
+ALTER TABLE topac.corpus_facets_in_topics ADD CONSTRAINT topic_probabilities_in_documents_corpus_facets
+    FOREIGN KEY (corpus_facets_id)
+    REFERENCES topac.corpus_facets (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
 
--- Reference: topics_in_documents_topics (table: topic_probabilities_in_documents)
-ALTER TABLE topac.topic_probabilities_in_documents ADD CONSTRAINT topics_in_documents_topics
+-- Reference: topics_in_documents_topics (table: corpus_facets_in_topics)
+ALTER TABLE topac.corpus_facets_in_topics ADD CONSTRAINT topics_in_documents_topics
     FOREIGN KEY (topics_id)
     REFERENCES topac.topics (id)  
     NOT DEFERRABLE 

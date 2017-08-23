@@ -54,6 +54,8 @@ class TopicModel:
         self.corpus_id = self.read_corpus_id()
         # Get corpus feature ID.
         self.corpus_feature_id = self.read_corpus_feature_id()
+        # Initialize topic model ID as empty.
+        self.topic_model_id = None
 
     def read_corpus_id(self):
         """
@@ -72,7 +74,11 @@ class TopicModel:
         res = cursor.fetchone()
 
         # FOR TESTING PURPOSES: Empty databases topac model tables on start.
-        cursor.execute("truncate table topac.topic_models cascade")
+        cursor.execute("truncate table  topac.topic_models, "
+                       "                topac.topics, "
+                       "                topac.terms_in_topics, "
+                       "                topac.corpus_facets_in_topics "
+                       "restart identity")
         self.db_connector.connection.commit()
 
         # Return corpus ID.
@@ -122,6 +128,7 @@ class TopicModel:
                                                  id2word=self.gensim_dictionary,
                                                  alpha=self.alpha,
                                                  eta=self.eta,
+                                                 minimum_probability=0.00000001,
                                                  num_topics=self.kappa,
                                                  iterations=self.n_iterations)
 
@@ -145,8 +152,7 @@ class TopicModel:
 
         cursor.execute("select "
                        "    cf.gensim_dictionary as gensim_dictionary, "
-                       "    cf.gensim_corpus as gensim_corpus, "
-                       "    cf.feature_value_sequence as feature_value_sequence "
+                       "    cf.gensim_corpus as gensim_corpus "
                        "from "
                        "    topac.corpus_features cf "
                        "inner join topac.corpora c on "
@@ -157,7 +163,7 @@ class TopicModel:
                        (self.corpus_title, self.corpus_feature_title))
         res = cursor.fetchone()
 
-        # gensim can only read from file, so we dump the data do files.
+        # gensim can only read from file, so we dump the data to files.
         with open("tmp_dict_file.dict", "wb") as tmp_dict_file:
             tmp_dict_file.write(res[0])
         with open("tmp_corpus_file.mm", "wb") as tmp_corpus_file:
@@ -186,36 +192,173 @@ class TopicModel:
 
         self.logger.info("Importing topic model.")
 
-        # 0. Load topics.
-        topics = topic_model.show_topic()
+        # 1. Load topics.
+        topics = topic_model.show_topics(num_topics=topic_model.num_topics,
+                                         num_words=topic_model.num_terms,
+                                         formatted=False)
 
-        # 1. Import topic model entry.
+        # 2. Load terms in corpus as map.
+        term_dict = self.db_connector.load_terms_in_corpus(corpus_id=self.corpus_id)
+
+        # 3. Import topic model entry.
+        cursor.execute(
+            "insert into "
+            "    topac.topic_models ( "
+            "       alpha, "
+            "       eta, "
+            "       kappa, "
+            "       n_iterations, "
+            "       corpora_id, "
+            "       corpus_features_id, "
+            "       runtime, "
+            "       coordinates "
+            ") "
+            "values "
+            "    (%s, %s, %s, %s, %s, %s, %s, %s) "
+            "returning id",
+            (self.alpha,
+             self.eta,
+             self.kappa,
+             self.n_iterations,
+             self.corpus_id,
+             self.corpus_feature_id,
+             self.runtime,
+             self.coordinates))
+        self.topic_model_id = cursor.fetchone()[0]
+
+        # 4. Import topics.
+        sequence_number = 1
+        for topic in topics:
+            self.import_topic(cursor=cursor,
+                              topic=topic,
+                              sequence_number=sequence_number,
+                              term_dict=term_dict)
+            sequence_number += 1
+
+        # 5. Import topic-in-document matrix.
+        self.import_topics_in_documents_distribution(cursor=cursor,
+                                                     topic_model=topic_model)
+
+    def import_topic(self, cursor, topic, sequence_number, term_dict):
+        """
+        Import topic (including topic-in-document and term-in-topic distribution) into DB.
+        :param cursor:
+        :param topic:
+        :param sequence_number:
+        :param term_dict:
+        :return:
+        """
+
+        # 1. Insert new topic entry into DB.
         cursor.execute("insert into "
-                       "    topac.topic_models (alpha, "
-                       "                        eta, "
-                       "                        kappa, "
-                       "                        n_iterations, "
-                       "                        corpora_id, "
-                       "                        corpus_features_id,"
-                       "                        runtime,"
-                       "                        coordinates) "
-                       "values "
-                       "    (%s, %s, %s, %s, %s, %s, %s, %s) "
+                       "    topac.topics("
+                       "        sequence_number, "
+                       "        title, "
+                       "        topic_models_id, "
+                       "        quality, "
+                       "        coordinates"
+                       ") "
+                       "values (%s, %s, %s, %s, %s) "
                        "returning id",
-                       (self.alpha,
-                        self.eta,
-                        self.kappa,
-                        self.n_iterations,
-                        self.corpus_id,
-                        self.corpus_feature_id,
-                        self.runtime,
-                        self.coordinates))
+                       (sequence_number,
+                        "",
+                        self.topic_model_id,
+                        0,
+                        []))
+        topic_id = cursor.fetchone()[0]
 
         # 2. Import term-in-topic probability matrix.
+        tuples_to_insert = []
+        for word, prob in topic[1]:
+            tuples_to_insert.append((topic_id,
+                                     prob,
+                                     term_dict[word]["terms_in_corpora_id"]))
+        # Import term-in-topics data.
+        cursor.execute(cursor.mogrify("insert into "
+                                      "  topac.terms_in_topics ( "
+                                      "     topics_id, "
+                                      "     probability,"
+                                      "     terms_in_corpora_id "
+                                      "     ) "
+                                      " values " +
+                                      ','.join(["%s"] * len(tuples_to_insert)), tuples_to_insert))
 
+    def import_topics_in_documents_distribution(self, cursor, topic_model):
+        """
+        Imports topic-in-document probability matrix.
+        :param cursor:
+        :param topic_model:
+        :return:
+        """
 
+        # 1. Fetch IDs of facets in correct order.
+        cursor.execute("select "
+                       "    id "
+                       "from "
+                       "    topac.corpus_facets "
+                       "where"
+                       "    corpus_features_id = %s "
+                       "order by"
+                       "    sequence_number asc",
+                       (self.corpus_feature_id,))
+        facet_ids_res = cursor.fetchall()
 
+        # 2. Fetch IDs of topics in correct order.
+        cursor.execute("select "
+                       "    id "
+                       "from "
+                       "    topac.topics "
+                       "where"
+                       "    topic_models_id = %s "
+                       "order by"
+                       "    sequence_number asc",
+                       (self.topic_model_id,))
+        topic_ids_res = cursor.fetchall()
 
+        # 2. Apply transformation to corpus to retrieve topic-document probabilities.
+        # See
+        # https://stackoverflow.com/questions/25803267/retrieve-topic-word-array-document-topic-array-from-lda-gensim.
+        # Document number/ID (sequence of documents in corpusMM is equivalent with sequence of feature values in DB.
 
+        # Clear collection of tuples to insert.
+        tuples_to_insert = []
+        # Store row indices.
+        document_row_index = 0
+        topic_row_index = 0
 
+        # Iterate through all topic-document edges.
+        for topic_in_docs_datum in topic_model[self.gensim_corpus]:
+            # Fetch current facet ID (facet is equivalent to document here, since a facet is comprised of all documents
+            # with the same value for the selected corpus feature.
+            corpus_facet_id = facet_ids_res[document_row_index][0]
 
+            # Deconstruct in individual topic -> document relations.
+            for topic_in_doc_datum in topic_in_docs_datum:
+                # Fetch current topic ID.
+                # Assumption: Since facets/documents were imported in the same order as they were provided to gensim's
+                # models and gensim's show_topics() sequence of topics is acknowledged as a consequence of the sort by
+                # sequence_number, both the sequence of documents and the sequence of topics should agree with gensim's
+                # sort order in the topic-document matrix.
+                topic_id = topic_ids_res[topic_row_index][0]
+
+                # Append new record.
+                tuples_to_insert.append((topic_id, corpus_facet_id, topic_in_doc_datum[1]))
+
+                # Keep track of processed topic entries in topic-document matrix.
+                topic_row_index += 1
+
+            # Keep track of processed facet/document entries in topic-document matrix.
+            document_row_index += 1
+
+            # Reset topic row index.
+            topic_row_index = 0
+
+        # Persist topic-document matrix.
+        cursor.execute(cursor.mogrify("insert into "
+                                      "  topac.corpus_facets_in_topics ( "
+                                      "     topics_id, "
+                                      "     corpus_facets_id,"
+                                      "     probability "
+                                      ") "
+                                      " values " +
+                                      ','.join(["%s"] * len(tuples_to_insert)), tuples_to_insert))

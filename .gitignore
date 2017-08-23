@@ -115,3 +115,7 @@ logs
 
 # Dolphin files.
 .directory
+
+# No gensim-produced files.
+*.mm
+*.dict

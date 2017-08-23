@@ -335,59 +335,58 @@ class Corpus:
         # ---------------------
         # 1. Concatenate documents with same value for current corpus_feature to one document.
         # ---------------------
-        tokenized_merged_documents_dict, raw_merged_documents_dict = \
-            Corpus.merge_tokenized_document_texts_by_feature_value(
-                documents=documents,
-                corpus_feature=corpus_feature
-            )
-
-        # Note that feature values and merged documents are sorted in the same order -
-        # hence it's possible later on to use the sequence of feature values to determine
-        # topic-probability associations.
-        feature_values = list(tokenized_merged_documents_dict.keys())
-        tokenized_merged_documents = list(tokenized_merged_documents_dict.values())
+        merged_documents_dict = Corpus.merge_tokenized_document_texts_by_feature_value(
+            documents=documents,
+            corpus_feature=corpus_feature
+        )
 
         # ---------------------
-        # 2. Store sequence feature_values (for later retrieval of topic-document probabilities after TM building.
+        # 2. Store corpus facets.
         # ---------------------
-        cursor.execute("update topac.corpus_features "
-                       "set "
-                       "    feature_value_sequence = %s "
-                       "where id = %s",
-                       (feature_values, corpus_feature["id"]))
 
-        # ---------------------
-        # 3. Store corpus facets.
-        # ---------------------
         # Prepare sumy summarizer.
         # summarizer = Sumy_TextRankSummarizer(Sumy_Stemmer("english"))
         # summarizer.stop_words = self.stopwords
 
-        for feature_value, raw_merged_document in raw_merged_documents_dict.items():
+        # Prepare sorted listed of merged tokenized documents.
+        sorted_tokenized_merged_documents = []
+
+        # Sequence index.
+        i = 1
+
+        # Iterate over all facets and the corresponding merged documents.
+        for feature_value, merged_documents in sorted(merged_documents_dict.items()):
             # parser = Sumy_PlaintextParser.from_string(raw_merged_document, Sumy_Tokenizer("english"))
             # blub = []
             # for sentence in summarizer(parser.document, 10):
             #    blub.append(sentence)
 
-            # Insert facet.
             cursor.execute("insert into "
                            "    topac.corpus_facets ("
                            "    corpus_features_id, "
                            "    corpus_feature_value, "
-                           "    summarized_text"
+                           "    summarized_text, "
+                           "    sequence_number"
                            ") "
-                           "values (%s, %s, %s)",
+                           "values (%s, %s, %s, %s)",
                            (corpus_feature["id"],
                             feature_value,
                             # todo Which summarizer to use? Runtime not critical, but relevant.
-                            ""
-                            # gensim.summarization.summarize(raw_merged_document, self.summarization_word_count)
+                            "",
+                            # gensim.summarization.summarize(raw_merged_document, self.summarization_word_count),
+                            i
                             ))
+
+            # Append tokenized merged document to list.
+            sorted_tokenized_merged_documents.append(merged_documents["tokenized_text"])
+
+            # Keep track of sequence index of facet.
+            i += 1
 
         # ---------------------
         # 4. Build dictionary.
         # ---------------------
-        dictionary = gensim.corpora.Dictionary(tokenized_merged_documents)
+        dictionary = gensim.corpora.Dictionary(sorted_tokenized_merged_documents)
         # Filter stopwords out of dictionary.
         ids_to_remove = [dictionary.token2id[stopword] for stopword in stopwords if stopword in dictionary.token2id]
         dictionary.filter_tokens(ids_to_remove)
@@ -401,7 +400,7 @@ class Corpus:
         # 5. Build and save corpus for LDA-based topic modeling.
         # ---------------------
         Corpus.generate_and_import_gensim_corpus(cursor=cursor,
-                                                 tokenized_documents=tokenized_merged_documents,
+                                                 tokenized_documents=sorted_tokenized_merged_documents,
                                                  dictionary=dictionary,
                                                  corpus_feature_id=corpus_feature["id"])
 
@@ -413,25 +412,25 @@ class Corpus:
         Merges tokenized document texts by their documents' values for the specified feature.
         :param documents:
         :param corpus_feature:
-        :return: Lists of merged (1) tokenized document texts and (2) raw document texts.
+        :return: Lists of merged tokenized and raw document texts, indexed by their feature value.
         """
 
-        merged_tokenized_document_texts_by_feature = {}
-        merged_raw_document_texts_by_feature = {}
+        merged_document_texts_by_feature = {}
 
         # Iterate over all documents and group their tokenized_texts by feature value.
         for document in documents:
             feature_value = document["features"][corpus_feature["name"]]
 
             # Group documents by feature value.
-            if feature_value in merged_tokenized_document_texts_by_feature:
-                merged_tokenized_document_texts_by_feature[feature_value].extend(document["tokenized_text"])
-                merged_raw_document_texts_by_feature[feature_value] += " " + document["raw_text"]
+            if feature_value in merged_document_texts_by_feature:
+                merged_document_texts_by_feature[feature_value]["tokenized_text"].extend(document["tokenized_text"])
+                merged_document_texts_by_feature[feature_value]["raw_text"] += " " + document["raw_text"]
             else:
-                merged_tokenized_document_texts_by_feature[feature_value] = document["tokenized_text"]
-                merged_raw_document_texts_by_feature[feature_value] = document["raw_text"]
+                merged_document_texts_by_feature[feature_value] = {}
+                merged_document_texts_by_feature[feature_value]["tokenized_text"] = document["tokenized_text"]
+                merged_document_texts_by_feature[feature_value]["raw_text"] = document["raw_text"]
 
-        return merged_tokenized_document_texts_by_feature, merged_raw_document_texts_by_feature
+        return merged_document_texts_by_feature
 
     @staticmethod
     def import_terms(cursor, dictionary, corpus_id):
