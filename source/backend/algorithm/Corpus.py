@@ -38,7 +38,6 @@ class Corpus:
         :param summarization_word_count: Number of words to use for summarization of document in this corpus.
         """
         self.logger = logging.getLogger("topac")
-
         self.logger.info("Initializing Corpus object.")
 
         self.name = name
@@ -124,10 +123,13 @@ class Corpus:
                                                      document_id=document_id,
                                                      value=document_id)
             # Categories.
+            # Auxiliary variable: Stringify list of categories in Reuters corpus. Most likley not needed for generic
+            # import.
+            categories_value = "".join(str(e) for e in nltk.corpus.reuters.categories(fileids=[fileID]))
             Corpus.import_corpus_feature_in_document(cursor=cursor,
                                                      corpus_feature_id=self.corpus_features["categories"]["id"],
                                                      document_id=document_id,
-                                                     value=nltk.corpus.reuters.categories(fileids=[fileID]))
+                                                     value=categories_value)
 
             # Add to list of documents.
             # Note: With generic corpus, data has to be loaded from corresponding column in dataframe/dict.
@@ -135,8 +137,7 @@ class Corpus:
                             "raw_text": doc,
                             "features": {
                                 self.corpus_features["document_id"]["name"]: document_id,
-                                self.corpus_features["categories"]["name"]:
-                                    nltk.corpus.reuters.categories(fileids=[fileID])[0]
+                                self.corpus_features["categories"]["name"]: categories_value
                             }}
             documents.append(new_document)
 
@@ -335,7 +336,7 @@ class Corpus:
         # ---------------------
         # 1. Concatenate documents with same value for current corpus_feature to one document.
         # ---------------------
-        merged_documents_dict = Corpus.merge_tokenized_document_texts_by_feature_value(
+        merged_documents_dict = Corpus.merge_document_texts_by_feature_value(
             documents=documents,
             corpus_feature=corpus_feature
         )
@@ -407,7 +408,7 @@ class Corpus:
         return dictionary
 
     @staticmethod
-    def merge_tokenized_document_texts_by_feature_value(documents, corpus_feature):
+    def merge_document_texts_by_feature_value(documents, corpus_feature):
         """
         Merges tokenized document texts by their documents' values for the specified feature.
         :param documents:
@@ -416,6 +417,10 @@ class Corpus:
         """
 
         merged_document_texts_by_feature = {}
+
+        # todo Replace value in corpus_features_in_documents with reference to facet. Might be necessary to sample all
+        # distinct values first - and implicitly to persist corpus facets first, then corpus_features_in_value (maybe
+        # rename too?). Not critical, but helps in reducing disk footprint.
 
         # Iterate over all documents and group their tokenized_texts by feature value.
         for document in documents:

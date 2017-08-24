@@ -17,11 +17,12 @@
 #   - Calculate and persist t-SNE positions for words and documents
 #   - Calculate and persist t-SNE positions for topics
 
+import logging
 import backend.database.DBConnector as DBConnector
 import backend.utils.Utils as Utils
 import backend.algorithm.Corpus as Corpus
-import logging
 import backend.algorithm.TopicModel as TopicModel
+import backend.algorithm.Doc2VecModel as Doc2VecModel
 
 
 # Note: Reserved keywords for feature columns are id, raw_text.
@@ -41,9 +42,9 @@ db_connector = DBConnector(host="localhost",
 # Set corpus title.
 corpus_title = "nltk-reuters"
 
-# Create database.
+# # Create database.
 # db_connector.construct_database()
-
+#
 # # Import nltk-reuters corpus.
 # stopwords = []
 # # Define which corpus-features should be used.
@@ -56,12 +57,18 @@ corpus_title = "nltk-reuters"
 #                              corpus_features=corpus_features)
 # nltk_reuters_corpus.compile("", db_connector)
 
-# Create new topic model. Omit hyperparameters for now.
-topic_model = TopicModel(db_connector=db_connector,
-                         corpus_title=corpus_title,
-                         corpus_feature_title="document_id",
-                         n_iterations=10)
-# Calculate/compile topic model.
-topic_model.compile()
+# # Create new topic model. Omit hyperparameters for now.
+# topic_model = TopicModel(db_connector=db_connector,
+#                          corpus_title=corpus_title,
+#                          corpus_feature_title="document_id",
+#                          n_iterations=10,
+#                          n_workers=2)
+# # Calculate/compile topic model.
+# topic_model.compile()
+
+# Create new doc2vec model. Omit hyperparameters for now.
+doc2vec_model = Doc2VecModel(db_connector=db_connector, corpus_title=corpus_title)
+# Compile doc2vec model.
+doc2vec_model.compile()
 
 logger.info("Finished test.py.")

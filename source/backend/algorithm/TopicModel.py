@@ -7,13 +7,22 @@ import logging
 import os
 import gensim
 
+
 class TopicModel:
     """
     Classic LDA topic models.
     Contains data and logic for processing, storing, retrieving and analyzing topic-model related data.
     """
 
-    def __init__(self, db_connector, corpus_title, corpus_feature_title, n_workers=1, alpha=None, eta=None, kappa=None, n_iterations=None):
+    def __init__(self,
+                 db_connector,
+                 corpus_title,
+                 corpus_feature_title,
+                 n_workers=1,
+                 alpha=None,
+                 eta=None,
+                 kappa=None,
+                 n_iterations=None):
         """
         Set up topic model parameters.
         Note: Uses title instead of IDs as arguments to simplify usage (and because performance isn't critical
@@ -51,59 +60,13 @@ class TopicModel:
         self.gensim_corpus = None
 
         # Get corpus ID.
-        self.corpus_id = self.read_corpus_id()
+        self.corpus_id = self.db_connector.fetch_corpus_id(corpus_title=self.corpus_title)
         # Get corpus feature ID.
-        self.corpus_feature_id = self.read_corpus_feature_id()
+        self.corpus_feature_id = self.db_connector.fetch_corpus_feature_id(
+            corpus_id=self.corpus_id, corpus_feature_title=self.corpus_feature_title
+        )
         # Initialize topic model ID as empty.
         self.topic_model_id = None
-
-    def read_corpus_id(self):
-        """
-        Reads corpus_id from database for given corpus_title.
-        :return: Corpus ID for this title.
-        """
-
-        cursor = self.db_connector.connection.cursor()
-        cursor.execute("select "
-                       "   id "
-                       "from "
-                       "   topac.corpora c "
-                       "where "
-                       "   c.title = %s",
-                       (self.corpus_title,))
-        res = cursor.fetchone()
-
-        # FOR TESTING PURPOSES: Empty databases topac model tables on start.
-        cursor.execute("truncate table  topac.topic_models, "
-                       "                topac.topics, "
-                       "                topac.terms_in_topics, "
-                       "                topac.corpus_facets_in_topics "
-                       "restart identity")
-        self.db_connector.connection.commit()
-
-        # Return corpus ID.
-        return res[0]
-
-    def read_corpus_feature_id(self):
-        """
-        Reads corpus_feature_id from database for determined corpus ID and corpus_feature_title.
-        :return: Corpus feature ID for this corpus feature title in this corpus.
-        """
-
-        cursor = self.db_connector.connection.cursor()
-        cursor.execute("select "
-                       "   cf.id "
-                       "from "
-                       "   topac.corpus_features cf "
-                       "inner join topac.corpora c on "
-                       "    c.id = cf.corpora_id and "
-                       "    c.id = %s"
-                       "where "
-                       "   cf.title = %s",
-                       (self.corpus_id, self.corpus_feature_title))
-
-        # Return corpus feature ID.
-        return cursor.fetchone()[0]
 
     def compile(self):
         """
@@ -128,7 +91,7 @@ class TopicModel:
                                                  id2word=self.gensim_dictionary,
                                                  alpha=self.alpha,
                                                  eta=self.eta,
-                                                 minimum_probability=0.00000001,
+                                                 minimum_probability=0.000000001,
                                                  num_topics=self.kappa,
                                                  iterations=self.n_iterations)
 

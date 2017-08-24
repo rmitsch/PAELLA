@@ -1,7 +1,6 @@
 class IterableGensimDoc2BowCorpus(object):
     """
-    Iterable used for gensim's streaming processing - to avoid holding all documents
-    at once in memory.
+    Iterable used for gensim's streaming processing - to avoid holding all documents at once in memory.
     """
 
     def __init__(self,  tokenized_documents, dictionary):

@@ -74,3 +74,54 @@ class DBConnector:
             term_dict[row[0]]["terms_in_corpora_id"] = row[2]
 
         return term_dict
+
+    def fetch_corpus_id(self, corpus_title):
+        """
+        Reads corpus_id from database for given corpus_title.
+        :param corpus_title:
+        :return: Corpus ID for this title.
+        """
+
+        cursor = self.connection.cursor()
+        cursor.execute("select "
+                       "   id "
+                       "from "
+                       "   topac.corpora c "
+                       "where "
+                       "   c.title = %s",
+                       (corpus_title,))
+        res = cursor.fetchone()
+
+        # # FOR TESTING PURPOSES: Empty databases topac model tables on start.
+        # cursor.execute("truncate table  topac.topic_models, "
+        #                "                topac.topics, "
+        #                "                topac.terms_in_topics, "
+        #                "                topac.corpus_facets_in_topics "
+        #                "restart identity")
+        # self.connection.commit()
+
+        # Return corpus ID.
+        return res[0]
+
+    def fetch_corpus_feature_id(self, corpus_id, corpus_feature_title):
+        """
+        Reads corpus_feature_id from database for determined corpus ID and corpus_feature_title.
+        :param corpus_id:
+        :param corpus_feature_title:
+        :return: Corpus feature ID for this corpus feature title in this corpus.
+        """
+
+        cursor = self.connection.cursor()
+        cursor.execute("select "
+                       "   cf.id "
+                       "from "
+                       "   topac.corpus_features cf "
+                       "inner join topac.corpora c on "
+                       "    c.id = cf.corpora_id and "
+                       "    c.id = %s"
+                       "where "
+                       "   cf.title = %s",
+                       (corpus_id, corpus_feature_title))
+
+        # Return corpus feature ID.
+        return cursor.fetchone()[0]
