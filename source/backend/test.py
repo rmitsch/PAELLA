@@ -4,18 +4,17 @@
 #
 #
 # NEXT STEPS
+#   - Calculate and persist t-SNE positions for words and documents
+#       * Fetch vectors for all words.
+#       * Choose distance metric (story type in DB/doc2vec_model?) and calculate distance matrix.
+#       * Apply t-SNE.
+#       * Store term coordinates in DB.
+#       * Make sure every term has coordinates (and that there are no terms having coordinates but are not persisted).
+#   - Calculate and persist t-SNE positions for topics
+#   - Description of use cases
 #   - How to handle summarization per facet?
 #     https://rare-technologies.com/text-summarization-in-python-extractive-vs-abstractive-techniques-revisited/
 #     https://github.com/miso-belica/sumy/
-#   - Sentiment analysis - per document? Per facet? At all?
-#     Calculate per document and then average per facet? -> nltk + VADER
-#     http://www.nltk.org/howto/sentiment.html
-#     http://www.geeksforgeeks.org/twitter-sentiment-analysis-using-python/
-#   - Import topic models
-#   - Description of use cases
-#   - Generate and import doc2vec model
-#   - Calculate and persist t-SNE positions for words and documents
-#   - Calculate and persist t-SNE positions for topics
 
 import logging
 import backend.database.DBConnector as DBConnector
@@ -46,14 +45,13 @@ corpus_title = "nltk-reuters"
 # db_connector.construct_database()
 #
 # # Import nltk-reuters corpus.
-# stopwords = []
 # # Define which corpus-features should be used.
 # corpus_features = [
 #     {"name": "categories", "type": "text"}
 # ]
 # nltk_reuters_corpus = Corpus(name=corpus_title,
 #                              corpus_type="nltk-reuters",
-#                              stopwords=stopwords,
+#                              stopwords=[],
 #                              corpus_features=corpus_features)
 # nltk_reuters_corpus.compile("", db_connector)
 
@@ -67,7 +65,12 @@ corpus_title = "nltk-reuters"
 # topic_model.compile()
 
 # Create new doc2vec model. Omit hyperparameters for now.
-doc2vec_model = Doc2VecModel(db_connector=db_connector, corpus_title=corpus_title)
+doc2vec_model = Doc2VecModel(db_connector=db_connector,
+                             corpus_title=corpus_title,
+                             alpha=0.05,
+                             n_workers=2,
+                             n_epochs=15,
+                             n_window=10)
 # Compile doc2vec model.
 doc2vec_model.compile()
 

@@ -12,6 +12,8 @@ class TopicModel:
     """
     Classic LDA topic models.
     Contains data and logic for processing, storing, retrieving and analyzing topic-model related data.
+    Use gensim's default values if none are provided.
+    See https://radimrehurek.com/gensim/models/ldamodel.html#gensim.models.ldamodel.LdaModel
     """
 
     def __init__(self,
@@ -21,8 +23,8 @@ class TopicModel:
                  n_workers=1,
                  alpha=None,
                  eta=None,
-                 kappa=None,
-                 n_iterations=None):
+                 kappa=100,
+                 n_iterations=50):
         """
         Set up topic model parameters.
         Note: Uses title instead of IDs as arguments to simplify usage (and because performance isn't critical
@@ -45,10 +47,10 @@ class TopicModel:
         self.corpus_feature_title = corpus_feature_title
         # Use gensim's default values if none are provided.
         # See https://radimrehurek.com/gensim/models/ldamodel.html#gensim.models.ldamodel.LdaModel
-        self.kappa = kappa if kappa is not None else 100
+        self.kappa = kappa
         self.alpha = alpha if alpha is not None else 1.0 / self.kappa
         self.eta = eta if eta is not None else 1.0 / self.kappa
-        self.n_iterations = n_iterations if n_iterations is not None else 50
+        self.n_iterations = n_iterations
         self.n_workers = n_workers
         # Initialize runtime with 0.
         self.runtime = 0
@@ -79,13 +81,13 @@ class TopicModel:
 
         self.logger.info("Compiling topic model.")
 
-        # Initialize cursor.
+        # 1. Initialize cursor.
         cursor = self.db_connector.connection.cursor()
 
-        # Load dictionary and corpus from database.
+        # 2. Load dictionary and corpus from database.
         self.load_gensim_models(cursor=cursor)
 
-        # Train LDA model.
+        # 3. Train LDA model.
         topic_model = gensim.models.LdaMulticore(corpus=self.gensim_corpus,
                                                  workers=self.n_workers,
                                                  id2word=self.gensim_dictionary,
@@ -95,14 +97,10 @@ class TopicModel:
                                                  num_topics=self.kappa,
                                                  iterations=self.n_iterations)
 
-        # Store results in database.
+        # 4. Store results in database.
         self.import_topic_model(cursor, topic_model)
 
-        # Delete gensim files from disk (apparently used during training, maybe for updating the file
-        # with results).
-        TopicModel.delete_gensim_model_files()
-
-        # Commit changes.
+        # 5. Commit changes.
         self.db_connector.connection.commit()
 
     def load_gensim_models(self, cursor):
@@ -139,7 +137,6 @@ class TopicModel:
     def delete_gensim_model_files():
         """
         Clean up files when they aren't needed any longer.
-        :param self:
         :return:
         """
         os.remove("tmp_dict_file.dict")
@@ -201,6 +198,10 @@ class TopicModel:
         # 5. Import topic-in-document matrix.
         self.import_topics_in_documents_distribution(cursor=cursor,
                                                      topic_model=topic_model)
+
+        # Delete gensim files from disk (apparently used during training, maybe for updating the file
+        # with results).
+        TopicModel.delete_gensim_model_files()
 
     def import_topic(self, cursor, topic, sequence_number, term_dict):
         """

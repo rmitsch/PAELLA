@@ -58,6 +58,11 @@ class Corpus:
         if corpus_type not in Corpus.supportedCorporaTypes:
             self.logger.error("Corpus type not supported")
 
+        # Initialize corpus ID as empty.
+        self.corpus_id = None
+        # Initalize dictionary as empty.
+        self.dictionary = None
+
     def compile(self, path, db_connector):
         """
         Preprocesses and mports specified corpus.
@@ -90,19 +95,19 @@ class Corpus:
         documents = []
 
         # Import corpus.
-        corpus_id = Corpus.import_corpus(cursor, self.name)
+        self.corpus_id = Corpus.import_corpus(cursor, self.name)
 
         # Import corpus features.
         for corpus_feature_name, corpus_feature in self.corpus_features.items():
             corpus_feature_id = Corpus.import_corpus_feature(cursor=cursor,
-                                                             corpus_id=corpus_id,
+                                                             corpus_id=self.corpus_id,
                                                              feature_title=corpus_feature_name,
                                                              feature_type=corpus_feature["type"])
             # Update dict for corpus features.
             self.corpus_features[corpus_feature_name]["id"] = corpus_feature_id
 
         # Define and import stopwords.
-        self.generate_and_import_stopwords(cursor, corpus_id)
+        self.generate_and_import_stopwords(cursor, self.corpus_id)
 
         # Preprocess and persist documents.
         for fileID in nltk.corpus.reuters.fileids():
@@ -111,7 +116,7 @@ class Corpus:
 
             # Import document in DB.
             document_id = Corpus.import_document(cursor=cursor,
-                                                 corpus_id=corpus_id,
+                                                 corpus_id=self.corpus_id,
                                                  title=fileID,
                                                  raw_text=doc,
                                                  sentiment_analyzer=sentiment_analyzer)
@@ -147,7 +152,7 @@ class Corpus:
         # Refine corpus text.
         self.preprocess_corpus(db_connector=db_connector,
                                documents=documents,
-                               corpus_id=corpus_id,
+                               corpus_id=self.corpus_id,
                                corpus_features=self.corpus_features)
 
     @staticmethod
@@ -293,15 +298,6 @@ class Corpus:
             # Remove stopwords from text.
             doc["text"] = ' '.join(filter(lambda x: x not in self.stopwords, doc["tokenized_text"]))
 
-            # Update documents in DB. Again: Performance could be sped up, but bottleneck is most likely not
-            # document preprocessing.
-            cursor.execute("update topac.documents "
-                           "set"
-                           "    refined_text = %s "
-                           "where"
-                           "    id = %s ",
-                           (doc["text"], doc["id"]))
-
         # ---------------------
         # 3. For topic models: Preprocess corpus and store relevant information for each corpus feature.
         # ---------------------
@@ -314,12 +310,33 @@ class Corpus:
             # If current feature (and dictionary) is document ID: Store terms and term-corpus associations
             # in database.
             if corpus_feature["name"] == "document_id":
+                self.dictionary = dictionary
                 Corpus.import_terms(cursor=cursor,
                                     dictionary=dictionary,
                                     corpus_id=corpus_id)
 
         # ---------------------
-        # x. Commit transaction.
+        # 4. Remove all words in documents' refined_text that aren't in dictionary in order to achieve consistency.
+        # ---------------------
+
+        # Use gensim's dictionary to construct a set for lookups.
+        term_dict = set(self.dictionary.values())
+        # Iterate over documents, remove words not existing in dictionary.
+        for doc in documents:
+            # Pertain only those words that are actually stored in the dictionary.
+            doc["text"] = ' '.join(filter(lambda x: x in term_dict, doc["text"].split()))
+
+            # Update documents in DB. Again: Performance could be sped up, but bottleneck is most likely not
+            # document preprocessing.
+            cursor.execute("update topac.documents "
+                           "set"
+                           "    refined_text = %s "
+                           "where"
+                           "    id = %s ",
+                           (doc["text"], doc["id"]))
+
+        # ---------------------
+        # 5. Commit transaction.
         # ---------------------
         db_connector.connection.commit()
 
@@ -394,6 +411,8 @@ class Corpus:
         # Filter words occuring only once (reasonable?).
         ids_to_remove = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq == 1]
         dictionary.filter_tokens(ids_to_remove)
+        # Remove words not occuring in at least two documents.
+        dictionary.filter_extremes(no_below=2)
         # Remove gaps in sequence after removing stopwords.
         dictionary.compactify()
 

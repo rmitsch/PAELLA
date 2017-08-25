@@ -50,7 +50,7 @@ class DBConnector:
         """
         Loads all terms in corpus and returns it as map.
         :param corpus_id:
-        :return: Map in the form of "word: {terms_ID, terms_in_corpora_ID}"
+        :return: Map in the form of "term: {terms_ID, terms_in_corpora_ID}"
         """
 
         cursor = self.connection.cursor()

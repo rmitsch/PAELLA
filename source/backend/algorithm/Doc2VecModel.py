@@ -6,6 +6,7 @@
 import logging
 import gensim.models.doc2vec as doc2vec
 from backend.algorithm.IterableTextCorpusForDoc2Vec import IterableTextCorpusForDoc2Vec
+import os
 
 class Doc2VecModel:
     """
@@ -13,27 +14,44 @@ class Doc2VecModel:
     Used for accessing preprocessed data from the database and generating the actual model in accordance with the
     specified hyperparameters.
     See https://rare-technologies.com/doc2vec-tutorial/.
+    Use gensim's default values if none are provided.
+    See https://radimrehurek.com/gensim/models/doc2vec.html.
     """
 
-    def __init__(self, db_connector, corpus_title):
+    def __init__(self,
+                 db_connector,
+                 corpus_title,
+                 feature_vector_size=100,
+                 alpha=0.025,
+                 min_alpha=0.0001,
+                 n_window=5,
+                 n_workers=1,
+                 n_epochs=5):
         """
         Set up properties.
         :param db_connector:
         :param corpus_title:
         """
         self.logger = logging.getLogger("topac")
-        self.logger.info("Initializing Doc2VecModel object.")
+        self.logger.info("Initializing Doc2VecModel object. doc2vec.FAST_VERSION = " + str(doc2vec.FAST_VERSION))
 
         self.db_connector = db_connector
         self.corpus_title = corpus_title
         self.runtime = 0
 
+        self.feature_vector_size = feature_vector_size
+        self.alpha = alpha
+        self.min_alpha = min_alpha
+        self.n_window = n_window
+        self.n_workers = n_workers
+        self.n_epochs = n_epochs
+
         # Get corpus ID.
         self.corpus_id = self.db_connector.fetch_corpus_id(corpus_title=self.corpus_title)
+        # Initialize model as empty.
+        self.model = None
         # Initialize topic model ID as empty.
         self.doc2vec_model_id = None
-
-        print(doc2vec.FAST_VERSION)
 
     def compile(self):
         """
@@ -45,6 +63,13 @@ class Doc2VecModel:
 
         # Prepare cursor.
         cursor = self.db_connector.connection.cursor()
+
+        # FOR TEST PURPOSES: Truncate contents of doc2vec tables.
+        cursor.execute("truncate table  topac.doc2vec_models, "
+                       "                topac.corpus_facets_in_doc2vec_models, "
+                       "                topac.terms_in_doc2vec_model "
+                       "restart identity")
+        self.db_connector.connection.commit()
 
         # 1. Load all documents including their labels.
         cursor.execute("select "
@@ -74,11 +99,94 @@ class Doc2VecModel:
                        "    d.refined_text; ",
                        (self.corpus_id,))
 
-        # Transfrom document collection to iterable corpus.
+        # 2. Transfrom document collection to iterable corpus.
         iterable_text_corpus = IterableTextCorpusForDoc2Vec(db_result_set=cursor.fetchall())
 
-        # Initialize doc2vec model.
-        model = doc2vec.Doc2Vec(alpha=0.025, min_alpha=0.025)
-        model.build_vocab(iterable_text_corpus)
+        # 3. Initialize and train doc2vec model.
+        # See https://rare-technologies.com/doc2vec-tutorial/ for reference (note that tutorial version is slightly
+        # deprecated).
+        # Include training of word embeddings.
+        self.model = doc2vec.Doc2Vec(alpha=self.alpha,
+                                     min_alpha=self.min_alpha,
+                                     dbow_words=1,
+                                     size=self.feature_vector_size,
+                                     window=self.n_window,
+                                     workers=self.n_workers,
+                                     iter=self.n_epochs,
+                                     dm_tag_count=iterable_text_corpus.number_of_document_tags,
+                                     # Don't prune any words that weren't removed during preprocessing.
+                                     min_count=1
+                                     )
+        self.model.build_vocab(iterable_text_corpus)
+
+        self.logger.info("Training model.")
+
+        # 4. Train doc2vec model in accordance with specified parameters.
+        self.model.train(sentences=iterable_text_corpus,
+                         total_examples=self.model.corpus_count,
+                         start_alpha=self.model.alpha,
+                         end_alpha=self.model.min_alpha,
+                         epochs=self.model.iter)
+
+        # 5. Prepare for persisting model.
+
+        self.logger.info("finished training model")
+        # Delete temporary training data before persisting model (assuming we don't want to train the model with
+        # more documents, since this won't be possible anymore - other than restarting training completely).
+        self.model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
+
+        # Dump model to temp file.
+        self.model.save("tmp_model.d2v")
+
+        # 6. Persist model.
+        self.logger.info("persisting model")
+        self.import_doc2vec_model(cursor=cursor)
+
+        # Get rid of temporary file.
+        os.remove("tmp_model.d2v")
+
+        # Commit changes.
+        self.db_connector.connection.commit()
+
+    def import_doc2vec_model(self, cursor):
+        """
+
+        :param self:
+        :param cursor:
+        :return:
+        """
+
+        # 1. Store model in database.
+        cursor.execute("insert into "
+                       "    topac.doc2vec_models( "
+                       "        corpora_id, "
+                       "        feature_vector_size, "
+                       "        n_window, "
+                       "        alpha, "
+                       "        min_alpha, "
+                       "        n_epochs, "
+                       "        gensim_model "
+                       ") "
+                       "values (%s, %s, %s, %s, %s, %s, %s) "
+                       "returning id",
+                       (self.corpus_id,
+                        self.feature_vector_size,
+                        self.n_window,
+                        self.alpha,
+                        self.min_alpha,
+                        self.n_epochs,
+                        open("tmp_model.d2v", "rb").read()))
+        self.doc2vec_model_id = cursor.fetchone()[0]
+
+        # 2. Retrieve all terms in corpus.
+        term_dict = self.db_connector.load_terms_in_corpus(corpus_id=self.corpus_id)
+
+        # 3. Gather word vectors for all terms.
+        for word, ids in term_dict.items():
+            try:
+                blub = self.model.wv[word]
+            except:
+                print("Not in wv: " + word)
+                input()
 
 

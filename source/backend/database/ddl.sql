@@ -1,5 +1,5 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2017-08-23 15:11:58.961
+-- Last modification date: 2017-08-25 14:22:17.528
 
 create schema topac;
 
@@ -68,11 +68,12 @@ CREATE TABLE topac.corpus_features_in_documents (
 CREATE TABLE topac.doc2vec_models (
     id serial  NOT NULL,
     corpora_id int  NOT NULL,
-    gensim_size int  NOT NULL,
-    gensim_window int  NOT NULL,
-    gensim_alpha real  NOT NULL,
-    gensim_iter int  NOT NULL,
-    gensim_doc2vec_model bytea  NOT NULL,
+    feature_vector_size int  NOT NULL,
+    alpha real  NOT NULL,
+    min_alpha real  NOT NULL,
+    n_window int  NOT NULL,
+    n_epochs int  NOT NULL,
+    gensim_model bytea  NOT NULL,
     comment text  NULL,
     CONSTRAINT doc2vec_models_pk PRIMARY KEY (id)
 );
