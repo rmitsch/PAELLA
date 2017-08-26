@@ -20,7 +20,7 @@ RUN chmod +x /tmp/setup.sh
 
 RUN apk update && \
 	# cmake for installing dependencies.
-	apk add cmake=3.9.1-r1 && \
+	apk add cmake=3.6.3-r0 && \
 	# git for pulling Multicore-t-SNE from git.
 	apk add git=2.14.1-r1 && \
 	# Install various drivers necessary on alpine for some of the python dependencies.

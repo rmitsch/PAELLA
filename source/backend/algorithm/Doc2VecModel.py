@@ -210,7 +210,7 @@ class Doc2VecModel:
         #     input()
 
         # Apply t-SNE.
-        # Note that currently, a inofficial multithreaded version of t-SNE is used (see
+        # todo Note that currently, a inofficial multithreaded version of t-SNE is used (see
         # https://github.com/DmitryUlyanov/Multicore-TSNE). There are reports of incosistencies/worse results than
         # with the (horribly slow) scikit-learn implementation. Pay attention to that - if necessary, either
         #   (1) Increase accurady-related variables (angle, iterations, etc.),

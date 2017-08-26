@@ -5,9 +5,6 @@
 #
 # NEXT STEPS
 #   - Calculate and persist t-SNE positions for words and documents
-#       * Fetch vectors for all words.
-#       * Choose distance metric (story type in DB/doc2vec_model?) and calculate distance matrix.
-#       * Apply t-SNE.
 #       * Store term coordinates in DB.
 #       * Make sure every term has coordinates (and that there are no terms having coordinates but are not persisted).
 #   - Calculate and persist t-SNE positions for topics
