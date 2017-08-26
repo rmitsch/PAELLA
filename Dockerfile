@@ -22,7 +22,7 @@ RUN apk update && \
 	# cmake for installing dependencies.
 	apk add cmake=3.6.3-r0 && \
 	# git for pulling Multicore-t-SNE from git.
-	apk add git=2.14.1-r1 && \
+	apk add git=2.11.3-r0 && \
 	# Install various drivers necessary on alpine for some of the python dependencies.
 	apk add postgresql-dev=9.6.4-r0 && \
 	apk add zlib-dev=1.2.11-r0 && \
