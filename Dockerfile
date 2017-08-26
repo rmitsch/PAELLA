@@ -20,6 +20,7 @@ RUN chmod +x /tmp/setup.sh
 
 RUN apk update && \
 	# cmake for installing dependencies.
+	apk add build-base=0.4-r1 && \
 	apk add cmake=3.6.3-r0 && \
 	# git for pulling Multicore-t-SNE from git.
 	apk add git=2.11.3-r0 && \
