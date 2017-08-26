@@ -24,6 +24,7 @@ RUN apk update && \
 	# git for pulling Multicore-t-SNE from git.
 	apk add git=2.11.3-r0 && \
 	# Install various drivers necessary on alpine for some of the python dependencies.
+	apk add libffi-dev=3.2.1-r3 && \
 	apk add postgresql-dev=9.6.4-r0 && \
 	apk add zlib-dev=1.2.11-r0 && \
 	apk add libxml2=2.9.4-r3 && \
