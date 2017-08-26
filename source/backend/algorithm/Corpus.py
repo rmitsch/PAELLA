@@ -370,7 +370,7 @@ class Corpus:
         sorted_tokenized_merged_documents = []
 
         # Sequence index.
-        i = 1
+        sequence_number = 1
 
         # Iterate over all facets and the corresponding merged documents.
         for feature_value, merged_documents in sorted(merged_documents_dict.items()):
@@ -392,14 +392,14 @@ class Corpus:
                             # todo Which summarizer to use? Runtime not critical, but relevant.
                             "",
                             # gensim.summarization.summarize(raw_merged_document, self.summarization_word_count),
-                            i
+                            sequence_number
                             ))
 
             # Append tokenized merged document to list.
             sorted_tokenized_merged_documents.append(merged_documents["tokenized_text"])
 
             # Keep track of sequence index of facet.
-            i += 1
+            sequence_number += 1
 
         # ---------------------
         # 4. Build dictionary.

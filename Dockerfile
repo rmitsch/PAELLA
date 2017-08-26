@@ -19,6 +19,10 @@ RUN chmod +x /tmp/setup.sh
 ##########################################
 
 RUN apk update && \
+	# cmake for installing dependencies.
+	apk add cmake=3.9.1-r1 && \
+	# git for pulling Multicore-t-SNE from git.
+	apk add git=2.14.1-r1 && \
 	# Install various drivers necessary on alpine for some of the python dependencies.
 	apk add postgresql-dev=9.6.4-r0 && \
 	apk add zlib-dev=1.2.11-r0 && \
@@ -31,7 +35,9 @@ RUN apk update && \
 	./tmp/setup.sh && \
 	# Remove build dependencies.
 	# To test: Does using numpy (gensim, ...) require build files?
-	apk --no-cache del --purge build-deps
+	apk --no-cache del --purge build-deps && \
+	apk del cmake && \
+	apk del git
 
 ##########################################
 # 3. Launch server.

@@ -8,3 +8,6 @@ python -c "import nltk; nltk.download('stopwords')"
 python -c "import nltk; nltk.download('punkt')"
 # Download VADER's lexicon.
 python -c "import nltk; nltk.download('vader_lexicon')"
+
+# Download repository and install package for multi-threaded t-SNE.
+pip install --no-cache-dir git+https://github.com/DmitryUlyanov/Multicore-TSNE.git

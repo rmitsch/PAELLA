@@ -4,9 +4,14 @@
 #
 
 import logging
-import gensim.models.doc2vec as doc2vec
+import gensim
 from backend.algorithm.IterableTextCorpusForDoc2Vec import IterableTextCorpusForDoc2Vec
 import os
+#from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+import numpy
+from MulticoreTSNE import MulticoreTSNE as TSNE
+
 
 class Doc2VecModel:
     """
@@ -33,7 +38,7 @@ class Doc2VecModel:
         :param corpus_title:
         """
         self.logger = logging.getLogger("topac")
-        self.logger.info("Initializing Doc2VecModel object. doc2vec.FAST_VERSION = " + str(doc2vec.FAST_VERSION))
+        self.logger.info("Initializing Doc2VecModel object. doc2vec.FAST_VERSION = " + str(gensim.models.doc2vec.FAST_VERSION))
 
         self.db_connector = db_connector
         self.corpus_title = corpus_title
@@ -106,17 +111,18 @@ class Doc2VecModel:
         # See https://rare-technologies.com/doc2vec-tutorial/ for reference (note that tutorial version is slightly
         # deprecated).
         # Include training of word embeddings.
-        self.model = doc2vec.Doc2Vec(alpha=self.alpha,
-                                     min_alpha=self.min_alpha,
-                                     dbow_words=1,
-                                     size=self.feature_vector_size,
-                                     window=self.n_window,
-                                     workers=self.n_workers,
-                                     iter=self.n_epochs,
-                                     dm_tag_count=iterable_text_corpus.number_of_document_tags,
-                                     # Don't prune any words that weren't removed during preprocessing.
-                                     min_count=1
-                                     )
+        self.model = gensim.models.doc2vec.Doc2Vec(alpha=self.alpha,
+                                                   min_alpha=self.min_alpha,
+                                                   dbow_words=1,
+                                                   size=self.feature_vector_size,
+                                                   window=self.n_window,
+                                                   workers=self.n_workers,
+                                                   iter=self.n_epochs,
+                                                   dm_tag_count=iterable_text_corpus.number_of_document_tags,
+                                                   # Don't prune any words not removed during preprocessing. See
+                                                   # https://stackoverflow.com/questions/45420466/gensim-keyerror-word-not-in-vocabulary?rq=1
+                                                   min_count=1
+                                                 )
         self.model.build_vocab(iterable_text_corpus)
 
         self.logger.info("Training model.")
@@ -181,12 +187,54 @@ class Doc2VecModel:
         # 2. Retrieve all terms in corpus.
         term_dict = self.db_connector.load_terms_in_corpus(corpus_id=self.corpus_id)
 
-        # 3. Gather word vectors for all terms.
-        for word, ids in term_dict.items():
-            try:
-                blub = self.model.wv[word]
-            except:
-                print("Not in wv: " + word)
-                input()
+        # Allocate memory for matrix.
+        number_of_elements_in_distance_matrix = len(self.model.wv.vocab)
 
+        # term_distance_matrix = [None] * number_of_elements_in_distance_matrix
+        # for i in range(0, number_of_elements_in_distance_matrix):
+        #     # Reserve memory for each row.
+        #     term_distance_matrix[i] = [None] * number_of_elements_in_distance_matrix
+
+        # Note: Default distance measure used in gensim's KeyedVector class is cosine similarity.
+        # Get word vectors (converted to double).
+        word_vectors = self.model[self.model.wv.vocab]
+        print(len(term_dict), number_of_elements_in_distance_matrix, len(word_vectors))
+        # i = 0
+        # for word in self.model.wv.vocab:
+        #     print(word + str(term_dict[word]))
+        #     print(self.model[word][:10])
+        #     print(word_vectors[i][:10])
+        #
+        #     i += 1
+        #
+        #     input()
+
+        # Apply t-SNE.
+        # Note that currently, a inofficial multithreaded version of t-SNE is used (see
+        # https://github.com/DmitryUlyanov/Multicore-TSNE). There are reports of incosistencies/worse results than
+        # with the (horribly slow) scikit-learn implementation. Pay attention to that - if necessary, either
+        #   (1) Increase accurady-related variables (angle, iterations, etc.),
+        #   (2) issue commands to a fast t-SNE installation in other languages (e.g.
+        #       * https://github.com/lvdmaaten/bhtsneor/https://github.com/maximsch2/bhtsne
+        #       * https://github.com/rappdw/tsne -
+        #       have python wrappers and seems to support multi-threading) or
+        #   (3) switch back to scikit-learn,.
+        self.logger.info("Applying TSNE to reduce dimensionality.")
+
+        # Initialize t-SNE with number of dimensions.
+        # See http://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html.
+        # Metric can be chosen on initialization using parameter 'metric' (default: euclidean). See
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html.
+        tsne = TSNE(n_components=2,
+                    method='barnes_hut',
+                    metric='euclidean',
+                    verbose=1)
+        # Train TSNE on gensim's model.
+        tsne_result = tsne.fit_transform(word_vectors.astype(numpy.float64))
+
+
+        # plt.scatter(tsne_result[:, 0], tsne_result[:, 1])
+        # plt.show()
+
+        # 4. Persist term coordinates.
 
