@@ -22,5 +22,6 @@ class IterableTextCorpusForDoc2Vec(object):
         Yield words and labels (feature values) for all documents in provided DB set.
         :return:
         """
+
         for row in self.db_result_set:
             yield gensim.models.doc2vec.TaggedDocument(words=row[1].split(), tags=row[2])

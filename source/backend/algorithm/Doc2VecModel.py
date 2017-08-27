@@ -7,10 +7,10 @@ import logging
 import gensim
 from backend.algorithm.IterableTextCorpusForDoc2Vec import IterableTextCorpusForDoc2Vec
 import os
-#from sklearn.manifold import TSNE
+from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import numpy
-from MulticoreTSNE import MulticoreTSNE as TSNE
+from MulticoreTSNE import MulticoreTSNE as MulticoreTSNE
 
 
 class Doc2VecModel:
@@ -80,7 +80,7 @@ class Doc2VecModel:
         cursor.execute("select "
                        "    d.id, "
                        "    d.refined_text, "
-                       "    array_agg(cf.id::varchar || ':' || cfa.id::varchar) as feature_labels "
+                       "    array_agg('t:' || cfa.id::varchar) as feature_labels "
                        "from "
                        "    topac.documents as d "
                        # Fetch available features available for this corpus.
@@ -187,30 +187,17 @@ class Doc2VecModel:
         # 2. Retrieve all terms in corpus.
         term_dict = self.db_connector.load_terms_in_corpus(corpus_id=self.corpus_id)
 
-        # Allocate memory for matrix.
-        number_of_elements_in_distance_matrix = len(self.model.wv.vocab)
+        # 3. Retrieve all facets in corpus.
+        facet_dict = self.db_connector.load_facets_in_corpus(corpus_id=self.corpus_id)
 
-        # term_distance_matrix = [None] * number_of_elements_in_distance_matrix
-        # for i in range(0, number_of_elements_in_distance_matrix):
-        #     # Reserve memory for each row.
-        #     term_distance_matrix[i] = [None] * number_of_elements_in_distance_matrix
+        # 4. Prepare coordinate matrix to be used by t-SNE.
+        for term, ids in term_dict.items():
+            blub = self.model[term]
+        for facet_id, facet_label in facet_dict.items():
+            blub = self.model.docvecs[facet_label["facet_label_key"]]
 
-        # Note: Default distance measure used in gensim's KeyedVector class is cosine similarity.
-        # Get word vectors (converted to double).
-        word_vectors = self.model[self.model.wv.vocab]
-        print(len(term_dict), number_of_elements_in_distance_matrix, len(word_vectors))
-        # i = 0
-        # for word in self.model.wv.vocab:
-        #     print(word + str(term_dict[word]))
-        #     print(self.model[word][:10])
-        #     print(word_vectors[i][:10])
-        #
-        #     i += 1
-        #
-        #     input()
-
-        # Apply t-SNE.
-        # todo Note that currently, a inofficial multithreaded version of t-SNE is used (see
+        # 4. Apply t-SNE.
+        # todo Note that currently an inofficial multithreaded version of t-SNE is used (see
         # https://github.com/DmitryUlyanov/Multicore-TSNE). There are reports of incosistencies/worse results than
         # with the (horribly slow) scikit-learn implementation. Pay attention to that - if necessary, either
         #   (1) Increase accurady-related variables (angle, iterations, etc.),
@@ -221,20 +208,40 @@ class Doc2VecModel:
         #   (3) switch back to scikit-learn,.
         self.logger.info("Applying TSNE to reduce dimensionality.")
 
+        #Doc2VecModel.test_plot_tsne_results(word_vectors[:1000, :].astype(numpy.float64))
         # Initialize t-SNE with number of dimensions.
         # See http://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html.
         # Metric can be chosen on initialization using parameter 'metric' (default: euclidean). See
         # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html.
-        tsne = TSNE(n_components=2,
-                    method='barnes_hut',
-                    metric='euclidean',
-                    verbose=1)
-        # Train TSNE on gensim's model.
-        tsne_result = tsne.fit_transform(word_vectors.astype(numpy.float64))
 
+        # 5. Persist term coordinates.
 
-        # plt.scatter(tsne_result[:, 0], tsne_result[:, 1])
-        # plt.show()
+        # Allocate memory for list of coordinates for all entities (words and document labels/facets).
+        list_of_entity_coordinates = [None] * (len(self.model.wv.vocab) + len(self.model.docvecs))
 
-        # 4. Persist term coordinates.
+    @staticmethod
+    def plot_tsne_results(word_vectors):
+        for i in range(1, 4):
+            tsne = MulticoreTSNE(n_components=2,
+                                 method='barnes_hut',
+                                 metric='euclidean',
+                                 verbose=1,
+                                 random_state=7)
+            # Train TSNE on gensim's model.
+            tsne_result = tsne.fit_transform(word_vectors)
+
+            plt.subplot(2, 3, i)
+            plt.scatter(tsne_result[:, 0], tsne_result[:, 1])
+        for i in range(1, 4):
+            tsne = TSNE(n_components=2,
+                                 method='barnes_hut',
+                                 metric='euclidean',
+                                 verbose=1,
+                                 random_state=7)
+            # Train TSNE on gensim's model.
+            tsne_result = tsne.fit_transform(word_vectors)
+
+            plt.subplot(2, 3, 3 + i)
+            plt.scatter(tsne_result[:, 0], tsne_result[:, 1])
+        plt.show()
 

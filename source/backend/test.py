@@ -5,6 +5,10 @@
 #
 # NEXT STEPS
 #   - Calculate and persist t-SNE positions for words and documents
+#       * Append facet vectors to word vectors; store index of appended line (important!) in dictionary.
+#       * Apply t-SNE.
+#       * Iterate over term and word dicitionaries, create tupels for DB updates/inserts with coordinates in t-SNE
+#         result matrix' corresponding line.
 #       * Store term coordinates in DB.
 #       * Make sure every term has coordinates (and that there are no terms having coordinates but are not persisted).
 #   - Calculate and persist t-SNE positions for topics
@@ -66,9 +70,12 @@ doc2vec_model = Doc2VecModel(db_connector=db_connector,
                              corpus_title=corpus_title,
                              alpha=0.05,
                              n_workers=2,
-                             n_epochs=15,
-                             n_window=10)
+                             n_epochs=1,
+                             n_window=1)
 # Compile doc2vec model.
 doc2vec_model.compile()
+
+# Close database connection.
+db_connector.connection.close()
 
 logger.info("Finished test.py.")

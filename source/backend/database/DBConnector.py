@@ -75,6 +75,33 @@ class DBConnector:
 
         return term_dict
 
+    def load_facets_in_corpus(self, corpus_id):
+        """
+        Loads all facets in corpus and returns it as map.
+        :param corpus_id:
+        :return: Map in the form of "id: {facet_label_key}"
+        """
+
+        cursor = self.connection.cursor()
+
+        cursor.execute("select "
+                       "    cfa.id "
+                       "from "
+                       "    topac.corpus_facets cfa "
+                       # Exclude all corpus features and facets not associated with this corpus.
+                       "inner join topac.corpus_features cfe on "
+                       "    cfe.id          = cfa.corpus_features_id and "
+                       "    cfe.corpora_id  = %s",
+                       (corpus_id,))
+
+        # Transform result in map.
+        facet_dict = {}
+        for row in cursor.fetchall():
+            facet_dict[row[0]] = {}
+            facet_dict[row[0]]["facet_label_key"] = "t:" + str(row[0])
+
+        return facet_dict
+
     def fetch_corpus_id(self, corpus_title):
         """
         Reads corpus_id from database for given corpus_title.
