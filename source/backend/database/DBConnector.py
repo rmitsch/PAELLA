@@ -72,6 +72,8 @@ class DBConnector:
             term_dict[row[0]] = {}
             term_dict[row[0]]["terms_id"] = row[1]
             term_dict[row[0]]["terms_in_corpora_id"] = row[2]
+            # Initialize index value as utiliary field with None.
+            term_dict[row[0]]["index"] = None
 
         return term_dict
 
@@ -98,7 +100,9 @@ class DBConnector:
         facet_dict = {}
         for row in cursor.fetchall():
             facet_dict[row[0]] = {}
-            facet_dict[row[0]]["facet_label_key"] = "t:" + str(row[0])
+            facet_dict[row[0]]["facet_label"] = "t:" + str(row[0])
+            # Initialize index value as utiliary field with None.
+            facet_dict[row[0]]["index"] = None
 
         return facet_dict
 

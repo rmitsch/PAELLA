@@ -136,7 +136,6 @@ class Doc2VecModel:
 
         # 5. Prepare for persisting model.
 
-        self.logger.info("finished training model")
         # Delete temporary training data before persisting model (assuming we don't want to train the model with
         # more documents, since this won't be possible anymore - other than restarting training completely).
         self.model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
@@ -191,12 +190,23 @@ class Doc2VecModel:
         facet_dict = self.db_connector.load_facets_in_corpus(corpus_id=self.corpus_id)
 
         # 4. Prepare coordinate matrix to be used by t-SNE.
-        for term, ids in term_dict.items():
-            blub = self.model[term]
-        for facet_id, facet_label in facet_dict.items():
-            blub = self.model.docvecs[facet_label["facet_label_key"]]
+        embedded_coordinates_matrix = numpy.zeros((len(self.model.wv.vocab) + len(self.model.docvecs),
+                                                  self.feature_vector_size))
+        i = 0
+        for term, term_values in term_dict.items():
+            embedded_coordinates_matrix[i] = self.model[term].astype(numpy.float64)
+            term_dict[term]["index"] = i
+            i += 1
+        for facet_id, facet_data in facet_dict.items():
+            embedded_coordinates_matrix[i] = self.model.docvecs[facet_data["facet_label"]].astype(numpy.float64)
+            facet_dict[facet_id]["index"] = i
+            i += 1
 
-        # 4. Apply t-SNE.
+        # 5. Apply t-SNE.
+        # See http://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html.
+        # Metric can be chosen on initialization using parameter 'metric' (default: euclidean). See
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html.
+        #
         # todo Note that currently an inofficial multithreaded version of t-SNE is used (see
         # https://github.com/DmitryUlyanov/Multicore-TSNE). There are reports of incosistencies/worse results than
         # with the (horribly slow) scikit-learn implementation. Pay attention to that - if necessary, either
@@ -208,16 +218,46 @@ class Doc2VecModel:
         #   (3) switch back to scikit-learn,.
         self.logger.info("Applying TSNE to reduce dimensionality.")
 
-        #Doc2VecModel.test_plot_tsne_results(word_vectors[:1000, :].astype(numpy.float64))
-        # Initialize t-SNE with number of dimensions.
-        # See http://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html.
-        # Metric can be chosen on initialization using parameter 'metric' (default: euclidean). See
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html.
+        tsne = MulticoreTSNE(n_components=2,
+                             method='barnes_hut',
+                             metric='euclidean',
+                             # todo Remove after tests are done.
+                             perplexity=2,
+                             # todo Remove after tests are done.
+                             angle=0.9,
+                             verbose=1,
+                             n_jobs=self.n_workers)
+        # Train TSNE on gensim's model.
+        tsne_results = tsne.fit_transform(embedded_coordinates_matrix)
+
+        plt.scatter(tsne_results[:, 0], tsne_results[:, 1])
+        plt.show()
 
         # 5. Persist term coordinates.
+        self.logger.info("Persisting TSNE results.")
 
-        # Allocate memory for list of coordinates for all entities (words and document labels/facets).
-        list_of_entity_coordinates = [None] * (len(self.model.wv.vocab) + len(self.model.docvecs))
+        # print(len(tsne_results), len(embedded_coordinates_matrix), self.feature_vector_size)
+
+        # Bulk update:
+        # https://stackoverflow.com/questions/33256345/how-to-efficiently-update-a-column-in-a-large-postgresql-table-using-python-ps
+
+        # Prepare term coordinates.
+        tuples_to_insert = [None] * len(self.model.wv.vocab)
+        i = 0
+        for term, term_values in term_dict.items():
+            tuples_to_insert[i] = ((self.doc2vec_model_id,
+                                    term_values["terms_in_corpora_id"],
+                                    tsne_results[term_values["index"]].tolist()))
+            i += 1
+        # Insert term coordinates into DB.
+        cursor.execute(cursor.mogrify("insert into "
+                                      "     topac.terms_in_doc2vec_model ( "
+                                      "         doc2vec_models_id, "
+                                      "         terms_in_corpora_id, "
+                                      "         coordinates"
+                                      ") "
+                                      " values " +
+                                      ','.join(["%s"] * len(tuples_to_insert)), tuples_to_insert))
 
     @staticmethod
     def plot_tsne_results(word_vectors):

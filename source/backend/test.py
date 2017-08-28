@@ -71,7 +71,8 @@ doc2vec_model = Doc2VecModel(db_connector=db_connector,
                              alpha=0.05,
                              n_workers=2,
                              n_epochs=1,
-                             n_window=1)
+                             n_window=1,
+                             feature_vector_size=5)
 # Compile doc2vec model.
 doc2vec_model.compile()
 
