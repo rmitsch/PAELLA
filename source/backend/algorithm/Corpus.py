@@ -300,8 +300,6 @@ class Corpus:
             doc["text"] = self.remove_everything_but_nouns(spacy_parser=spacy_parser, text=doc["raw_text"])
 
             # Make everything lowercase and exclude special signs: All ; & > < = numbers : , . ' "
-            # todo Change "smth-smth" to "smth_smth" instead of simply removing the hyphen (note that hyphen should be
-            # removed with "smth - smth").
             doc["text"] = re.sub(r"([;]|[(]|[)]|[/]|[\\]|[$]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|[-]|(\d+)|[']|[\"])", "",
                                  doc["text"].lower())
 
@@ -586,22 +584,22 @@ class Corpus:
         :return:
         """
 
+        cleaned_text = ""
+
         # Parse text.
         parse_result = spacy_parser(text)
-        print(text)
+        # print(text)
         # Get noun chunks.
         for res in parse_result.noun_chunks:
-            # Iterate over all words in noun chunk
-            print(res)
-            input()
+            # Filter out all stopwords from noun chunk.
+            res_wo_stopwords = ' '.join(filter(lambda x: x.lower() not in self.stopwords, res.text.split()))
+            # Remove numbers.
+            res_wo_stopwords = re.sub(r"(\d+)", "", res_wo_stopwords).strip()
 
-            # Next steps:
-            #   If chunk consists of one word, append to returned string as is. Otherwise:
-            #   1. Remove stopwords (opt.: disregard result if stopword is in between relevant words).
-            #      Remove '_'.
-            #   2. Strip whitespaces from beginning and end.
-            #   3. If still more than one word in chunk: Replace '-' or ' ' with '_'.
-            #   4. Adapt special char removal so that '_' is not removed.
-            #   After these four steps, multi-phrase nouns should be joined (check results superficially).
+            # Ignore noun compound if nothing remains after filtering stopwords.
+            if res_wo_stopwords != ' ' and res_wo_stopwords != '':
+                # Replace spaces and hypens with underscores.
+                res_wo_stopwords = re.sub(r"\s+|[-]", "_", res_wo_stopwords)
+                cleaned_text += res_wo_stopwords + " "
 
-        return text
+        return cleaned_text
