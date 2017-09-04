@@ -15,6 +15,8 @@ from sumy.nlp.stemmers import Stemmer as Sumy_Stemmer
 from sumy.parsers.plaintext import PlaintextParser as Sumy_PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer as Sumy_Tokenizer
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import spacy
+import pattern3
 
 
 class Corpus:
@@ -280,6 +282,11 @@ class Corpus:
         """
 
         # ---------------------
+        # 0. Prepare spacy's parser.
+        # ---------------------
+        spacy_parser = spacy.en.English()
+
+        # ---------------------
         # 1. Prepare cursor.
         # ---------------------
         cursor = db_connector.connection.cursor()
@@ -289,12 +296,21 @@ class Corpus:
         # ---------------------
         # Note: Assuming performance isn't critical for document import.
         for doc in documents:
+            # Remove everything but nouns.
+            doc["text"] = self.remove_everything_but_nouns(spacy_parser=spacy_parser, text=doc["raw_text"])
+
             # Make everything lowercase and exclude special signs: All ; & > < = numbers : , . ' "
+            # todo Change "smth-smth" to "smth_smth" instead of simply removing the hyphen (note that hyphen should be
+            # removed with "smth - smth").
             doc["text"] = re.sub(r"([;]|[(]|[)]|[/]|[\\]|[$]|[&]|[>]|[<]|[=]|[:]|[,]|[.]|[-]|(\d+)|[']|[\"])", "",
-                                 doc["raw_text"].lower())
+                                 doc["text"].lower())
+
             # Tokenize text.
+            # Note that removing stopwords from doc["tokenized_text"] is not necessary, since the same token set is
+            # provided to gensim and hence removed later on.
             doc["tokenized_text"] = [pattern_vector.stem(word, stemmer=pattern_vector.LEMMA)
                                      for word in doc["text"].split()]
+
             # Remove stopwords from text.
             doc["text"] = ' '.join(filter(lambda x: x not in self.stopwords, doc["tokenized_text"]))
 
@@ -305,6 +321,7 @@ class Corpus:
             dictionary = self.preprocess_corpus_feature(cursor=cursor,
                                                         documents=documents,
                                                         corpus_feature=corpus_feature,
+
                                                         stopwords=self.stopwords)
 
             # If current feature (and dictionary) is document ID: Store terms and term-corpus associations
@@ -559,3 +576,32 @@ class Corpus:
         os.remove("tmp_dict_file.dict")
         os.remove("tmp_corpus_file.mm")
         os.remove("tmp_corpus_file.mm.index")
+
+    def remove_everything_but_nouns(self, spacy_parser, text):
+        """
+        Removes every token that's not some form of noun.
+        See https://medium.com/@mukulmalik/word2vec-part-1-fe2ec6514d70.
+        :param spacy_parser: Instance of spacy's english language parser.
+        :param text:
+        :return:
+        """
+
+        # Parse text.
+        parse_result = spacy_parser(text)
+        print(text)
+        # Get noun chunks.
+        for res in parse_result.noun_chunks:
+            # Iterate over all words in noun chunk
+            print(res)
+            input()
+
+            # Next steps:
+            #   If chunk consists of one word, append to returned string as is. Otherwise:
+            #   1. Remove stopwords (opt.: disregard result if stopword is in between relevant words).
+            #      Remove '_'.
+            #   2. Strip whitespaces from beginning and end.
+            #   3. If still more than one word in chunk: Replace '-' or ' ' with '_'.
+            #   4. Adapt special char removal so that '_' is not removed.
+            #   After these four steps, multi-phrase nouns should be joined (check results superficially).
+
+        return text

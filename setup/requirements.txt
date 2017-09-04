@@ -1,6 +1,4 @@
 Flask==0.12.2
-nltk==3.2.4
-pattern3==3.0.0
 six==1.10.0
 psycopg2==2.7.3
 sumy==0.7.0

@@ -44,17 +44,19 @@ corpus_title = "nltk-reuters"
 
 # # Create database.
 # db_connector.construct_database()
-#
-# # Import nltk-reuters corpus.
-# # Define which corpus-features should be used.
-# corpus_features = [
-#     {"name": "categories", "type": "text"}
-# ]
-# nltk_reuters_corpus = Corpus(name=corpus_title,
-#                              corpus_type="nltk-reuters",
-#                              stopwords=[],
-#                              corpus_features=corpus_features)
-# nltk_reuters_corpus.compile("", db_connector)
+# Truncate database.
+db_connector.truncate_database()
+
+# Import nltk-reuters corpus.
+# Define which corpus-features should be used.
+corpus_features = [
+    {"name": "categories", "type": "text"}
+]
+nltk_reuters_corpus = Corpus(name=corpus_title,
+                             corpus_type="nltk-reuters",
+                             stopwords=[],
+                             corpus_features=corpus_features)
+nltk_reuters_corpus.compile("", db_connector)
 
 # # Create new topic model. Omit hyperparameters for now.
 # topic_model = TopicModel(db_connector=db_connector,
@@ -65,16 +67,16 @@ corpus_title = "nltk-reuters"
 # # Calculate/compile topic model.
 # topic_model.compile()
 
-# Create new doc2vec model. Omit hyperparameters for now.
-doc2vec_model = Doc2VecModel(db_connector=db_connector,
-                             corpus_title=corpus_title,
-                             alpha=0.05,
-                             n_workers=2,
-                             n_epochs=1,
-                             n_window=1,
-                             feature_vector_size=5)
-# Compile doc2vec model.
-doc2vec_model.compile()
+# # Create new doc2vec model. Omit hyperparameters for now.
+# doc2vec_model = Doc2VecModel(db_connector=db_connector,
+#                              corpus_title=corpus_title,
+#                              alpha=0.05,
+#                              n_workers=2,
+#                              n_epochs=1,
+#                              n_window=1,
+#                              feature_vector_size=5)
+# # Compile doc2vec model.
+# doc2vec_model.compile()
 
 # Close database connection.
 db_connector.connection.close()

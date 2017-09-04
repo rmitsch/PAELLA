@@ -123,16 +123,33 @@ class DBConnector:
                        (corpus_title,))
         res = cursor.fetchone()
 
-        # # FOR TESTING PURPOSES: Empty databases topac model tables on start.
-        # cursor.execute("truncate table  topac.topic_models, "
-        #                "                topac.topics, "
-        #                "                topac.terms_in_topics, "
-        #                "                topac.corpus_facets_in_topics "
-        #                "restart identity")
-        # self.connection.commit()
-
         # Return corpus ID.
         return res[0]
+
+    def truncate_database(self):
+        """
+        Truncates tables database (leaves structure intact).
+        :return:
+        """
+
+        cursor = self.connection.cursor()
+
+        cursor.execute("truncate table  topac.corpora, "
+                       "                topac.corpus_features, "
+                       "                topac.doc2vec_models, "
+                       "                topac.documents, "
+                       "                topac.stopwords, "
+                       "                topac.terms_in_corpora, "
+                       "                topac.corpus_facets, "
+                       "                topac.corpus_features_in_documents, "
+                       "                topac.corpus_facets_in_doc2vec_models, "
+                       "                topac.terms_in_doc2vec_model, "
+                       "                topac.topic_models, "
+                       "                topac.topics, "
+                       "                topac.terms_in_topics, "
+                       "                topac.corpus_facets_in_topics "
+                       "restart identity")
+        self.connection.commit()
 
     def fetch_corpus_feature_id(self, corpus_id, corpus_feature_title):
         """
