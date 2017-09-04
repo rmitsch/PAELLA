@@ -1,4 +1,4 @@
-FROM rmitsch/alpine-python-gensim
+FROM rmitsch/alpine-python-nlp
 
 ##########################################
 # 1. Copy relevant files into container.
