@@ -24,6 +24,7 @@ import backend.algorithm.Corpus as Corpus
 import backend.algorithm.TopicModel as TopicModel
 import backend.algorithm.Doc2VecModel as Doc2VecModel
 import gensim
+import os
 
 # Note: Reserved keywords for feature columns are id, raw_text.
 
@@ -93,3 +94,4 @@ topic_model.compile()
 db_connector.connection.close()
 
 logger.info("Finished test.py.")
+os.remove("tmp_word_embedding.d2v")
