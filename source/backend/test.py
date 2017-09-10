@@ -23,7 +23,7 @@ import backend.utils.Utils as Utils
 import backend.algorithm.Corpus as Corpus
 import backend.algorithm.TopicModel as TopicModel
 import backend.algorithm.Doc2VecModel as Doc2VecModel
-
+import gensim
 
 # Note: Reserved keywords for feature columns are id, raw_text.
 
@@ -46,6 +46,7 @@ corpus_title = "nltk-reuters"
 # db_connector.construct_database()
 # # Truncate database.
 # db_connector.truncate_database()
+db_connector.truncate_topic_tables()
 #
 # # Import nltk-reuters corpus.
 # # Define which corpus-features should be used.
@@ -58,25 +59,35 @@ corpus_title = "nltk-reuters"
 #                              corpus_features=corpus_features)
 # nltk_reuters_corpus.compile("", db_connector)
 
-# # Create new topic model. Omit hyperparameters for now.
-# topic_model = TopicModel(db_connector=db_connector,
-#                          corpus_title=corpus_title,
-#                          corpus_feature_title="document_id",
-#                          n_iterations=10,
-#                          n_workers=2)
-# # Calculate/compile topic model.
-# topic_model.compile()
+# # Create new doc2vec model. Omit most hyperparameters for now.
+# doc2vec_model = Doc2VecModel(db_connector=db_connector,
+#                              corpus_title=corpus_title,
+#                              alpha=0.05,
+#                              n_workers=2,
+#                              n_epochs=1,
+#                              n_window=1,
+#                              feature_vector_size=5)
+# # Compile doc2vec model.
+# doc2vec_model.compile()
 
-# Create new doc2vec model. Omit hyperparameters for now.
-doc2vec_model = Doc2VecModel(db_connector=db_connector,
-                             corpus_title=corpus_title,
-                             alpha=0.05,
-                             n_workers=2,
-                             n_epochs=1,
-                             n_window=1,
-                             feature_vector_size=5)
-# Compile doc2vec model.
-doc2vec_model.compile()
+# Fetch term-coordinate dictionary.
+term_coordinates_dict = db_connector.load_term_coordinates(doc2vec_model_id=1)
+# Fetch and instantiate doc2vec model (for testing purposes; in production: Fetch once before generating batch of topic
+# models).
+with open("tmp_word_embedding.d2v", "wb") as tmp_d2v_file:
+    tmp_d2v_file.write(db_connector.fetch_doc2vec_gensim_model(doc2vec_model_id=1))
+doc2vec_gensim_model = gensim.models.Doc2Vec.load("tmp_word_embedding.d2v")
+
+# Create new topic model. Omit most hyperparameters for now.
+topic_model = TopicModel(db_connector=db_connector,
+                         corpus_title=corpus_title,
+                         corpus_feature_title="document_id",
+                         n_iterations=10,
+                         n_workers=2,
+                         doc2vec_model=doc2vec_gensim_model,
+                         term_coordinates_dict=term_coordinates_dict)
+# Calculate/compile topic model.
+topic_model.compile()
 
 # Close database connection.
 db_connector.connection.close()

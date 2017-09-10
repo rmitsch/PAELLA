@@ -6,6 +6,7 @@
 import logging
 import os
 import gensim
+import numpy
 
 
 class TopicModel:
@@ -20,11 +21,15 @@ class TopicModel:
                  db_connector,
                  corpus_title,
                  corpus_feature_title,
+                 doc2vec_model,
+                 term_coordinates_dict,
                  n_workers=1,
                  alpha=None,
                  eta=None,
                  kappa=100,
-                 n_iterations=50):
+                 n_iterations=50,
+                 n_top_words_for_coherence=10,
+                 n_top_words_for_projection=10):
         """
         Set up topic model parameters.
         Note: Uses title instead of IDs as arguments to simplify usage (and because performance isn't critical
@@ -37,6 +42,15 @@ class TopicModel:
         :param eta:
         :param kappa:
         :param n_iterations:
+        :param n_top_words_for_coherence: Specifies n for the n most relevant words used to calculate cohesion.
+        :param n_top_words_for_projection: Specifies n for the n most relevant words used to project topic model into
+        flattened word embedding space.
+        :param doc2vec_model: Instance of gensim's doc2vec model supposed for calculation of word embedding-related
+        properties in this topic model. Note: If said properties are to be calculted in dependence of multiple doc2vec
+        models, some refactoring is necessary. For now, exactly one doc2vec model per x topic models is presumed (in
+        implementation, not in DB model, which is more flexible in this regard).
+        :param term_coordinates_dict: Dictionary (term => coordinate array) containing low-dimensional coordinates as
+        calculated by t-SNE.
         """
         self.logger = logging.getLogger("topac")
         self.db_connector = db_connector
@@ -47,6 +61,7 @@ class TopicModel:
         self.corpus_feature_title = corpus_feature_title
         # Use gensim's default values if none are provided.
         # See https://radimrehurek.com/gensim/models/ldamodel.html#gensim.models.ldamodel.LdaModel
+        # todo Set kappa to number of possible values for selected feature.
         self.kappa = kappa
         self.alpha = alpha if alpha is not None else 1.0 / self.kappa
         self.eta = eta if eta is not None else 1.0 / self.kappa
@@ -56,6 +71,14 @@ class TopicModel:
         self.runtime = 0
         # Initialize coordinates with empty array.
         self.coordinates = []
+        # Set application-specific hyperparameters.
+        self.n_top_words_for_coherence = n_top_words_for_coherence
+        self.n_top_words_for_projection = n_top_words_for_projection
+
+        # Set doc2vec model.
+        self.doc2vec_model = doc2vec_model
+        # Set term-coordinate matrix.
+        self.term_coordinates_dict = term_coordinates_dict
 
         # Initialize dictionary and corpus as empty, since they aren't always needed.
         self.gensim_dictionary = None
@@ -67,7 +90,9 @@ class TopicModel:
         self.corpus_feature_id = self.db_connector.fetch_corpus_feature_id(
             corpus_id=self.corpus_id, corpus_feature_title=self.corpus_feature_title
         )
-        # Initialize topic model ID as empty.
+        # Initialize topic model as empty.
+        self.model = None
+        # Initialize topic model ID in DB as empty.
         self.topic_model_id = None
 
     def compile(self):
@@ -88,17 +113,17 @@ class TopicModel:
         self.load_gensim_models(cursor=cursor)
 
         # 3. Train LDA model.
-        topic_model = gensim.models.LdaMulticore(corpus=self.gensim_corpus,
-                                                 workers=self.n_workers,
-                                                 id2word=self.gensim_dictionary,
-                                                 alpha=self.alpha,
-                                                 eta=self.eta,
-                                                 minimum_probability=0.000000001,
-                                                 num_topics=self.kappa,
-                                                 iterations=self.n_iterations)
+        self.model = gensim.models.LdaMulticore(corpus=self.gensim_corpus,
+                                                workers=self.n_workers,
+                                                id2word=self.gensim_dictionary,
+                                                alpha=self.alpha,
+                                                eta=self.eta,
+                                                minimum_probability=0.000000001,
+                                                num_topics=self.kappa,
+                                                iterations=self.n_iterations)
 
         # 4. Store results in database.
-        self.import_topic_model(cursor, topic_model)
+        self.import_topic_model(cursor, self.model)
 
         # 5. Commit changes.
         self.db_connector.connection.commit()
@@ -158,6 +183,7 @@ class TopicModel:
                                          formatted=False)
 
         # 2. Load terms in corpus as map.
+        self.logger.info("Loading terms in TopicModel.import_topic_model(...).")
         term_dict = self.db_connector.load_terms_in_corpus(corpus_id=self.corpus_id)
 
         # 3. Import topic model entry.
@@ -187,6 +213,7 @@ class TopicModel:
         self.topic_model_id = cursor.fetchone()[0]
 
         # 4. Import topics.
+        self.logger.info("Importing topics.")
         sequence_number = 1
         for topic in topics:
             self.import_topic(cursor=cursor,
@@ -195,6 +222,7 @@ class TopicModel:
                               term_dict=term_dict)
             sequence_number += 1
 
+        self.logger.info("Importing topic-in-document distribution.")
         # 5. Import topic-in-document matrix.
         self.import_topics_in_documents_distribution(cursor=cursor,
                                                      topic_model=topic_model)
@@ -220,15 +248,23 @@ class TopicModel:
                        "        title, "
                        "        topic_models_id, "
                        "        quality, "
-                       "        coordinates"
+                       "        coordinates, "
+                       "        coherence "
                        ") "
-                       "values (%s, %s, %s, %s, %s) "
+                       "values (%s, %s, %s, %s, %s, %s) "
                        "returning id",
                        (sequence_number,
                         "",
                         self.topic_model_id,
                         0,
-                        []))
+                        # Calculate topic coordinates in reduced word embedding space.
+                        self.calculate_coordinates(top_topic_words_with_probabilities=
+                                                   topic[1][:self.n_top_words_for_projection]),
+                        # Calculate topic cohesion for topic (cohesion for topic model can be derived from that).
+                        # Use only self.n_top_words_for_coherence most relevant words for that.
+                        self.calculate_coherence(top_topic_words_with_probabilities=
+                                                 topic[1][:self.n_top_words_for_coherence])
+                        ))
         topic_id = cursor.fetchone()[0]
 
         # 2. Import term-in-topic probability matrix.
@@ -246,6 +282,63 @@ class TopicModel:
                                       "     ) "
                                       " values " +
                                       ','.join(["%s"] * len(tuples_to_insert)), tuples_to_insert))
+
+    def calculate_coherence(self, top_topic_words_with_probabilities):
+        """
+        Calculates cohesion for specified topic. Uses pairwise euclidean distance.
+        :param top_topic_words_with_probabilities:
+        :return:
+        """
+
+        coherence = 0
+        # number_of_words should always equal self.n_top_words_for_coherence.
+        number_of_words = len(top_topic_words_with_probabilities)
+        for index in range(0, number_of_words):
+            for index2 in range(index, number_of_words):
+                # Use euclidean distance between doc2vec vectors for corresponding words, use topic probabilities to
+                # weigh them.
+                coherence += numpy.linalg.norm(
+                                numpy.multiply(
+                                    self.doc2vec_model[top_topic_words_with_probabilities[index][0]],
+                                    top_topic_words_with_probabilities[index][1]) -
+                                numpy.multiply(
+                                    self.doc2vec_model[top_topic_words_with_probabilities[index2][0]],
+                                    top_topic_words_with_probabilities[index2][1]
+                                )
+                )
+
+        # Normalize coherence (sum divided by number of pairs).
+        return coherence / (number_of_words * number_of_words - number_of_words) / 2
+
+    def calculate_coordinates(self, top_topic_words_with_probabilities):
+        """
+        Projects topic into word embedding space using probabilities and doc2vec coorediates of
+        top_top_topic_words_with_probabilities most relevant words.
+        :param top_topic_words_with_probabilities:
+        :return:
+        """
+
+        # CONTINUE HERE:
+        #     - Sum up weighted coordinate vectors (use numpy.array)
+        #     - Cast vector elements to int (?)
+        #     - Return array
+        #     - How to proceed after that? Projection and cohesion should be done
+        coordinates = None
+        # Number of words should always equal self.n_top_words_for_projection.
+        for index in range(0, len(top_topic_words_with_probabilities)):
+            # Use probability-weighted average over word coordinates.
+            if coordinates is None:
+                coordinates = numpy.multiply(
+                    self.term_coordinates_dict[top_topic_words_with_probabilities[index][0]],
+                    top_topic_words_with_probabilities[index][1]
+                )
+            else:
+                coordinates += numpy.multiply(
+                    self.term_coordinates_dict[top_topic_words_with_probabilities[index][0]],
+                    top_topic_words_with_probabilities[index][1]
+                )
+
+        return coordinates.tolist()
 
     def import_topics_in_documents_distribution(self, cursor, topic_model):
         """

@@ -77,6 +77,33 @@ class DBConnector:
 
         return term_dict
 
+    def load_term_coordinates(self, doc2vec_model_id):
+        """
+        Loads all terms in corpus and returns it as map.
+        :param doc2vec_model_id:
+        :return: Map in the form of "term: {coordinates}"
+        """
+
+        cursor = self.connection.cursor()
+
+        cursor.execute("select "
+                       "    t.term,"
+                       "    td.coordinates "
+                       "from "
+                       "    topac.terms_in_doc2vec_model td "
+                       "inner join topac.terms_in_corpora tc on"
+                       "    tc.id = td.terms_in_corpora_id "
+                       "inner join topac.terms t on "
+                       "    t.id = tc.terms_id",
+                       (doc2vec_model_id,))
+
+        # Transform result in map.
+        term_coordinate_dict = {}
+        for row in cursor.fetchall():
+            term_coordinate_dict[row[0]] = row[1]
+
+        return term_coordinate_dict
+
     def load_facets_in_corpus(self, corpus_id):
         """
         Loads all facets in corpus and returns it as map.
@@ -151,6 +178,21 @@ class DBConnector:
                        "restart identity")
         self.connection.commit()
 
+    def truncate_topic_tables(self):
+        """
+        Truncates topic-related tables in database (leaves structure intact).
+        :return:
+        """
+
+        cursor = self.connection.cursor()
+
+        cursor.execute("truncate table  topac.topic_models, "
+                       "                topac.topics, "
+                       "                topac.terms_in_topics, "
+                       "                topac.corpus_facets_in_topics "
+                       "restart identity")
+        self.connection.commit()
+
     def fetch_corpus_feature_id(self, corpus_id, corpus_feature_title):
         """
         Reads corpus_feature_id from database for determined corpus ID and corpus_feature_title.
@@ -170,6 +212,25 @@ class DBConnector:
                        "where "
                        "   cf.title = %s",
                        (corpus_id, corpus_feature_title))
+
+        # Return corpus feature ID.
+        return cursor.fetchone()[0]
+
+    def fetch_doc2vec_gensim_model(self, doc2vec_model_id):
+        """
+        Loads topac.doc2vec_models.gensim_model from database.
+        :param doc2vec_model_id:
+        :return: Gensim's model for this model wrapper ID.
+        """
+
+        cursor = self.connection.cursor()
+        cursor.execute("select "
+                       "   d.gensim_model "
+                       "from "
+                       "   topac.doc2vec_models d "
+                       "where "
+                       "   d.id = %s",
+                       (doc2vec_model_id,))
 
         # Return corpus feature ID.
         return cursor.fetchone()[0]

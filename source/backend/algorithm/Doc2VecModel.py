@@ -55,7 +55,7 @@ class Doc2VecModel:
         self.corpus_id = self.db_connector.fetch_corpus_id(corpus_title=self.corpus_title)
         # Initialize model as empty.
         self.model = None
-        # Initialize topic model ID as empty.
+        # Initialize doc2ved model ID in DB as empty.
         self.doc2vec_model_id = None
 
     def compile(self):
