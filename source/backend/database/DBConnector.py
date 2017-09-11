@@ -6,6 +6,8 @@
 import psycopg2
 import sys
 import logging
+import numpy
+
 
 class DBConnector:
     """

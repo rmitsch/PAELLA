@@ -290,25 +290,32 @@ class TopicModel:
         :return:
         """
 
-        coherence = 0
         # number_of_words should always equal self.n_top_words_for_coherence.
         number_of_words = len(top_topic_words_with_probabilities)
+
+        # Prepare by multiplying word vectors with word-in-topic probabilities, gather sum of probabilities in
+        # self.n_top_words_for_coherence most relevant words in order to normalize coherence.
+        weighted_word_vectors = [None] * number_of_words
+        probability_sum = 0.0
+        for index in range(0, number_of_words):
+            weighted_word_vectors[index] = numpy.multiply(
+                self.doc2vec_model[top_topic_words_with_probabilities[index][0]],
+                top_topic_words_with_probabilities[index][1]
+            )
+            # Sum up probability.
+            probability_sum += top_topic_words_with_probabilities[index][1]
+
+        # Calculate coherence.
+        coherence = 0.0
         for index in range(0, number_of_words):
             for index2 in range(index, number_of_words):
                 # Use euclidean distance between doc2vec vectors for corresponding words, use topic probabilities to
                 # weigh them.
-                coherence += numpy.linalg.norm(
-                                numpy.multiply(
-                                    self.doc2vec_model[top_topic_words_with_probabilities[index][0]],
-                                    top_topic_words_with_probabilities[index][1]) -
-                                numpy.multiply(
-                                    self.doc2vec_model[top_topic_words_with_probabilities[index2][0]],
-                                    top_topic_words_with_probabilities[index2][1]
-                                )
-                )
+                coherence += numpy.linalg.norm(weighted_word_vectors[index] - weighted_word_vectors[index2])
 
-        # Normalize coherence (sum divided by number of pairs).
-        return coherence / (number_of_words * number_of_words - number_of_words) / 2
+        # Normalize coherence by probability sum and number of pairwise connections.
+        number_of_pairs = (number_of_words * number_of_words - number_of_words) / 2
+        return (coherence * 1 / probability_sum) / number_of_pairs
 
     def calculate_coordinates(self, top_topic_words_with_probabilities):
         """
@@ -318,25 +325,30 @@ class TopicModel:
         :return:
         """
 
-        # CONTINUE HERE:
-        #     - Sum up weighted coordinate vectors (use numpy.array)
-        #     - Cast vector elements to int (?)
-        #     - Return array
-        #     - How to proceed after that? Projection and cohesion should be done
-        coordinates = None
+        # Store sum of probabilities in self.n_top_words_for_projection most relevant words.
+        probability_sum = 0.0
+        # Vector holding final coordinate set.
+        coordinates = numpy.multiply(
+            self.term_coordinates_dict[top_topic_words_with_probabilities[0][0]],
+            top_topic_words_with_probabilities[0][1]
+        )
+
         # Number of words should always equal self.n_top_words_for_projection.
-        for index in range(0, len(top_topic_words_with_probabilities)):
+        for index in range(1, len(top_topic_words_with_probabilities)):
+            # Sum up probabilities.
+            probability_sum += top_topic_words_with_probabilities[index][1]
+
             # Use probability-weighted average over word coordinates.
-            if coordinates is None:
-                coordinates = numpy.multiply(
-                    self.term_coordinates_dict[top_topic_words_with_probabilities[index][0]],
-                    top_topic_words_with_probabilities[index][1]
-                )
-            else:
-                coordinates += numpy.multiply(
-                    self.term_coordinates_dict[top_topic_words_with_probabilities[index][0]],
-                    top_topic_words_with_probabilities[index][1]
-                )
+            coordinates += numpy.multiply(
+                self.term_coordinates_dict[top_topic_words_with_probabilities[index][0]],
+                top_topic_words_with_probabilities[index][1]
+            )
+
+        # Normalize coordinate using probability sum (since sum might be less than one).
+        coordinates = numpy.multiply(
+            coordinates,
+            1 / probability_sum
+        )
 
         return coordinates.tolist()
 

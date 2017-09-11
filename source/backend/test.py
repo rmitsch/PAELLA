@@ -25,6 +25,8 @@ import backend.algorithm.TopicModel as TopicModel
 import backend.algorithm.Doc2VecModel as Doc2VecModel
 import gensim
 import os
+import numpy
+
 
 # Note: Reserved keywords for feature columns are id, raw_text.
 
@@ -48,7 +50,7 @@ corpus_title = "nltk-reuters"
 # # Truncate database.
 # db_connector.truncate_database()
 db_connector.truncate_topic_tables()
-#
+
 # # Import nltk-reuters corpus.
 # # Define which corpus-features should be used.
 # corpus_features = [
@@ -83,7 +85,7 @@ doc2vec_gensim_model = gensim.models.Doc2Vec.load("tmp_word_embedding.d2v")
 topic_model = TopicModel(db_connector=db_connector,
                          corpus_title=corpus_title,
                          corpus_feature_title="document_id",
-                         n_iterations=10,
+                         n_iterations=1,
                          n_workers=2,
                          doc2vec_model=doc2vec_gensim_model,
                          term_coordinates_dict=term_coordinates_dict)
