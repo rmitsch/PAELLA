@@ -1,4 +1,5 @@
-# TAPAS: Topic Analysis by Projection into Aligned word embedding Spaces
+# TAPAS 
+## Topic Analysis by Projection into Aligned word embedding Spaces
 
 [![Build Status](https://travis-ci.org/rmitsch/tapas.png)](https://travis-ci.org/rmitsch/tapas)
 
