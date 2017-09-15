@@ -20,7 +20,7 @@ services:
       - "8001:5432"     
      # Make Postgres log to a file.
      # Tune configuration here.
-    command: postgres -c shared_buffers=3GB
+    command: postgres -c shared_buffers=3GB -c effective_cache_size=6GB -c work_mem=100MB -c log_min_error_statement=error -c log_statement='none' -c log_min_duration_statement=-1
     environment:
       # Set superuser name.
       - POSTGRES_USER=admin

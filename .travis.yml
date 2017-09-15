@@ -8,13 +8,13 @@ before_script:
 - docker-compose -f docker-compose_dev.yml up --build -d
 - docker ps -a
 script:
-- docker ps | grep -q topac
+- docker ps | grep -q tapas
 after_script:
 - docker-compose down
 after_success:
 - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-- export REPO=rmitsch/topac
-- export LOCAL_IMAGE_NAME=topac_topac
+- export REPO=rmitsch/tapas
+- export LOCAL_IMAGE_NAME=tapas_tapas
 - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
 - docker tag $LOCAL_IMAGE_NAME $REPO:$TAG
 - docker tag $LOCAL_IMAGE_NAME $REPO:travis-$TRAVIS_BUILD_NUMBER

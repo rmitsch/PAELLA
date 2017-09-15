@@ -1,5 +1,7 @@
 FROM rmitsch/alpine-python-nlp
 
+MAINTAINER Raphael Mitsch <r.mitsch@hotmail.com>
+
 ##########################################
 # 1. Copy relevant files into container.
 ##########################################
