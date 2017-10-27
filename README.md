@@ -1,9 +1,9 @@
-# TAPAS 
-## Topic Analysis by Projection into Aligned Word Embedding Spaces
+# PAELLA 
+### Parameter space Analysis of word Embeddings Leveraging Low-dimensional visual Analogies
 
-[![Build Status](https://travis-ci.org/rmitsch/tapas.png)](https://travis-ci.org/rmitsch/tapas)
+[![Build Status](https://travis-ci.org/rmitsch/paella.png)](https://travis-ci.org/rmitsch/paella)
 
-Web application for visual parameter space analysis and exploration of topic models utilizing word embeddings (word2vec).
+Web application for visual parameter space analysis and exploration of word embedding models.
 Further information to follow.
 
 ##### Building instructions
