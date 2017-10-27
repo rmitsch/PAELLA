@@ -41,7 +41,7 @@ services:
 
 # Create network.           
 networks:
-  topac-network:
+  paella-network:
     driver: bridge    
 
 # Creates a named volume to persist our data. When on a non-Linux OS, the volume's data will be in the Docker VM
