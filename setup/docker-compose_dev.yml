@@ -4,7 +4,7 @@ version: "3.3"
 services:   
   # Container for application.
   paella:
-    build: .
+    build: ../.
     # Expose Flask's default port under 2397.
     ports:
       - "2397:5000"

@@ -7,11 +7,11 @@ MAINTAINER Raphael Mitsch <r.mitsch@hotmail.com>
 ##########################################
 
 # Copy file with python requirements into container.
-COPY requirements.txt /tmp/requirements.txt
+COPY setup/requirements.txt /tmp/requirements.txt
 # Copy setup file.
-COPY setup.sh /tmp/setup.sh
+COPY setup/setup.sh /tmp/setup.sh
 # Copy source code.
-COPY ../source /source
+COPY /source /source
 
 # Allow execution of setup scripts.
 RUN chmod +x /tmp/setup.sh
