@@ -3,7 +3,7 @@ version: "3.3"
 # Source: https://stackoverflow.com/questions/30848670/how-to-customize-the-configuration-file-of-the-official-postgresql-docker-image
 services:   
   # Container for application.
-  topac:
+  paella:
     image: rmitsch/paella
     # Expose Flask's default port under 2397.
     ports:
