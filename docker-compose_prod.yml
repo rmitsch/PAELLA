@@ -4,12 +4,12 @@ version: "3.3"
 services:   
   # Container for application.
   topac:
-    image: rmitsch/topac
+    image: rmitsch/paella
     # Expose Flask's default port under 2397.
     ports:
       - "2397:5000"
     networks:
-      - topac-network
+      - paella-network
     depends_on:
       - "db"
   # Container for postgres DB.
@@ -37,7 +37,7 @@ services:
       topac-network:
         # Our application can communicate with the database using this hostname
         aliases:
-        - topacPostgres
+        - paellaPostgres
 
 # Create network.           
 networks:

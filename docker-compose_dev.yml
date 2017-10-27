@@ -9,7 +9,7 @@ services:
     ports:
       - "2397:5000"
     networks:
-      - tapas-network
+      - paella-network
     depends_on:
       - "db"
   # Container for postgres DB.
@@ -37,7 +37,7 @@ services:
       tapas-network:
         # Our application can communicate with the database using this hostname
         aliases:
-        - tapasPostgres
+        - paellaPostgres
 
 # Create network.           
 networks:

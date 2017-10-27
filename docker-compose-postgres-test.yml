@@ -27,7 +27,7 @@ services:
       topac-test-network:
         # Our application can communicate with the database using this hostname
         aliases:
-        - topacPostgres
+        - paellaPostgres
 
 # Create network.           
 networks:
