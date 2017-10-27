@@ -24,14 +24,14 @@ services:
       - postgresVolume:/var/lib/postgresql/data
       #- ./logs:/logs
     networks:
-      topac-test-network:
+      paella-test-network:
         # Our application can communicate with the database using this hostname
         aliases:
         - paellaPostgres
 
 # Create network.           
 networks:
-  topac-test-network:
+  paella-test-network:
     driver: bridge    
 
 # Creates a named volume to persist our data. When on a non-Linux OS, the volume's data will be in the Docker VM

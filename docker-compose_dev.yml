@@ -34,7 +34,7 @@ services:
       - postgresVolume:/var/lib/postgresql/data
       #- ./logs:/logs
     networks:
-      tapas-network:
+      paella-network:
         # Our application can communicate with the database using this hostname
         aliases:
         - paellaPostgres
